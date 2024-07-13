@@ -1,1 +1,4 @@
 rootProject.name = 'example'
+include 'src:main:resource'
+findProject(':src:main:resource')?.name = 'resource'
+

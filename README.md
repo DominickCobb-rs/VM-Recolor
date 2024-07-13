@@ -1,2 +1,2 @@
-# Example
-An example greeter plugin
+# VM Recolor
+Options to make VM not look like mac and cheese
