@@ -87,7 +87,7 @@ public class VMRecolorPlugin extends Plugin
 	private static final Set<Integer> WALL_OBJECTS = ImmutableSet.of(30996, 30995, 30994, 30993, 30992, 30991, 30990);
 	private static final Set<Integer> GRAPHICS_OBJECTS = ImmutableSet.of(1406, 1407);
 
-	private static final Integer LAVA_BEAST = 7817;
+	public static final Integer LAVA_BEAST = 7817;
 
 	@Override
 	protected void startUp() throws Exception
@@ -227,11 +227,9 @@ public class VMRecolorPlugin extends Plugin
 			}
 			recolorNPC(event.getNpc());
 		}
-		if (THE_BOULDER_NPCS.contains(event.getNpc().getId()))
+		if (THE_BOULDER_NPCS.contains(event.getNpc().getId()) && config.customColor() && config.boulder())
 		{
-			Model model = event.getNpc().getModel();
-			System.out.println("NPC ID: " + event.getNpc().getId());
-			printFaceColors(model, event.getNpc().getId());
+			recolorNPC(event.getNpc());
 		}
 	}
 
@@ -249,16 +247,9 @@ public class VMRecolorPlugin extends Plugin
 			}
 			recolorNPC(event.getNpc());
 		}
-		if (THE_BOULDER_NPCS.contains(event.getNpc().getId()))
+		if (THE_BOULDER_NPCS.contains(event.getNpc().getId()) && config.customColor() && config.boulder())
 		{
-			if (event.getNpc().getId() != 7815 && event.getNpc().getId() != 7816)
-			{
-				recolorNPC(event.getNpc());
-				return;
-			}
-			Model model = event.getNpc().getModel();
-			System.out.println("NPC ID: " + event.getNpc().getId());
-			printFaceColors(model, event.getNpc().getId());
+			recolorNPC(event.getNpc());
 		}
 	}
 

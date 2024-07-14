@@ -181,14 +181,14 @@ public class ModelRecolorer
 			}
 		}
 
-		if (hideLava)
+		if (hideLava && id != VMRecolorPlugin.LAVA_BEAST)
 		{
 			if (id == 31039)
 			{
 				return -1;
 			}
 			// Not even going to try dynamically finding them
-			if (faceColor >= 5964 || faceColor == 127)
+			if (faceColor >= 5964)
 			{
 				return -1;
 			}
