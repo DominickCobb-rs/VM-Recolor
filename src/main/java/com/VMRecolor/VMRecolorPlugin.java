@@ -94,11 +94,11 @@ public class VMRecolorPlugin extends Plugin
 	{
 		if (config.customColor())
 		{
-			this.modelRecolorer = new ModelRecolorer("/model_facecolors.txt", config.color(), config.brightness(), config.onlyLava(), config.hideLava());
+			this.modelRecolorer = new ModelRecolorer("/model_facecolors.txt", config.color(), config.brightness(), config.onlyLava(), config.hideLava(), config.whiteBrightness());
 		}
 		else
 		{
-			this.modelRecolorer = new ModelRecolorer("/model_facecolors.txt", null, config.brightness(), config.onlyLava(), config.hideLava());
+			this.modelRecolorer = new ModelRecolorer("/model_facecolors.txt", null, config.brightness(), config.onlyLava(), config.hideLava(), config.whiteBrightness());
 		}
 		if (client.getGameState() == GameState.LOGGED_IN)
 		{
@@ -123,6 +123,8 @@ public class VMRecolorPlugin extends Plugin
 			recordedNpcs.clear();
 			recordedModels.clear();
 			recordedWallObjects.clear();
+			recordedProjectiles.clear();
+			recordedGraphicsObjects.clear();
 			sceneIDs.clear();
 			synchronized (modelRecolorer)
 			{
@@ -141,12 +143,17 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onCommandExecuted(CommandExecuted command)
 	{
-		if(command.getCommand().equalsIgnoreCase("vm"))
+		if (command.getCommand().equalsIgnoreCase("vm"))
 		{
 			modelRecolorer.hideThisColor = Integer.parseInt(command.getArguments()[0]);
-			if(config.customColor())
+			if (config.customColor())
+			{
 				reload(config.color());
-			else reload(null);
+			}
+			else
+			{
+				reload(null);
+			}
 		}
 	}
 
@@ -177,24 +184,25 @@ public class VMRecolorPlugin extends Plugin
 
 		if (event.getKey().equalsIgnoreCase("HideLava"))
 		{
-			clientThread.invoke(()->clearAll());
+			clientThread.invoke(() -> clearAll());
 		}
 
-		if(config.customColor())
+		if (config.customColor())
+		{
 			reload(config.color());
-		else reload(null);
+		}
+		else
+		{
+			reload(null);
+		}
 	}
 
 	@Subscribe
 	public void onGameObjectSpawned(GameObjectSpawned event)
 	{
-		if(!inVMRegion())
-			return;
-
-		if(event.getGameObject().getId() == 31033)
+		if (!inVMRegion())
 		{
-			System.out.println("GameObject ID: 31033");
-			printFaceColors(verifyModel(event.getGameObject().getRenderable()), 31033);
+			return;
 		}
 
 		if (GAME_OBJECTS.contains(event.getGameObject().getId()) || THE_BOULDER.contains(event.getGameObject().getId()))
@@ -206,7 +214,13 @@ public class VMRecolorPlugin extends Plugin
 				return;
 			}
 
-			if ((GAME_OBJECTS.contains(ID) && config.customColor()) || (config.boulder() && config.customColor() && THE_BOULDER.contains(ID)) || (LAVA_OBJECTS.contains(ID) && !config.customColor()) || (LAVA_OBJECTS.contains(ID) && config.onlyLava() && config.customColor()))
+			if (
+				(GAME_OBJECTS.contains(ID) && config.customColor())
+					|| (config.boulder() && config.customColor() && THE_BOULDER.contains(ID))
+					|| (LAVA_OBJECTS.contains(ID) && !config.customColor())
+					|| (LAVA_OBJECTS.contains(ID) && config.onlyLava() && config.customColor())
+				|| (LAVA_OBJECTS.contains(ID) && config.hideLava())
+			)
 			{
 				recolorGameObject(event.getGameObject());
 			}
@@ -216,8 +230,10 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event)
 	{
-		if(!inVMRegion())
+		if (!inVMRegion())
+		{
 			return;
+		}
 		if (LAVA_BEAST == event.getNpc().getId())
 		{
 			recordedNpcs.add(event.getNpc());
@@ -236,8 +252,10 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onNpcChanged(NpcChanged event)
 	{
-		if(!inVMRegion())
+		if (!inVMRegion())
+		{
 			return;
+		}
 		if (LAVA_BEAST == event.getNpc().getId())
 		{
 			recordedNpcs.add(event.getNpc());
@@ -256,8 +274,10 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onGroundObjectSpawned(GroundObjectSpawned event)
 	{
-		if(!inVMRegion())
+		if (!inVMRegion())
+		{
 			return;
+		}
 		if (!config.hideLava() && !config.customColor() && config.brightness() == 1.0)
 		{
 			return;
@@ -279,8 +299,10 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onGraphicsObjectCreated(GraphicsObjectCreated event)
 	{
-		if(!inVMRegion())
+		if (!inVMRegion())
+		{
 			return;
+		}
 		if (!config.customColor())
 		{
 			return;
@@ -298,8 +320,10 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	void onWallObjectSpawned(WallObjectSpawned event)
 	{
-		if(!inVMRegion())
+		if (!inVMRegion())
+		{
 			return;
+		}
 		if (!config.customColor() && config.brightness() == 1.0 && !config.hideLava())
 		{
 			return;
@@ -318,12 +342,14 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onProjectileMoved(ProjectileMoved projectileMoved)
 	{
-		if(!inVMRegion())
+		if (!inVMRegion())
+		{
 			return;
-		if(config.customColor() && !config.onlyLava())
+		}
+		if (config.customColor() && !config.onlyLava())
 		{
 
-			if (projectileMoved.getProjectile().getId() == 660 )
+			if (projectileMoved.getProjectile().getId() == 660)
 			{
 				recordedProjectiles.add(projectileMoved.getProjectile());
 				recolorProjectile(projectileMoved.getProjectile());
@@ -345,7 +371,7 @@ public class VMRecolorPlugin extends Plugin
 
 	public void recolorGraphicsObject(GraphicsObject graphicsObject)
 	{
-		if(config.customColor() && !config.onlyLava())
+		if (config.customColor() && !config.onlyLava())
 		{
 			Model model = graphicsObject.getModel();
 			if (model == null)
@@ -362,7 +388,7 @@ public class VMRecolorPlugin extends Plugin
 
 	public void recolorProjectile(Projectile projectile)
 	{
-		if(config.customColor() && !config.onlyLava())
+		if (config.customColor() && !config.onlyLava())
 		{
 			Model model = projectile.getModel();
 			if (model == null)
@@ -381,17 +407,24 @@ public class VMRecolorPlugin extends Plugin
 	{
 		synchronized (modelRecolorer)
 		{
-			modelRecolorer.update(color, config.brightness(), config.onlyLava(), config.hideLava());
+			modelRecolorer.update(color, config.brightness(), config.onlyLava(), config.hideLava(), config.whiteBrightness());
 		}
-		clientThread.invoke(() -> {
-			clearAll();
-			recolorAll();
-		});
-		if (client.getGameState() == GameState.LOGGED_IN)
+		try
 		{
 			clientThread.invoke(() -> {
-				client.setGameState(GameState.LOADING);
+				clearAll();
+				recolorAll();
 			});
+			if (client.getGameState() == GameState.LOGGED_IN)
+			{
+				clientThread.invoke(() -> {
+					client.setGameState(GameState.LOADING);
+				});
+			}
+		}
+		catch (NullPointerException e)
+		{
+
 		}
 	}
 
@@ -697,42 +730,6 @@ public class VMRecolorPlugin extends Plugin
 		System.out.println("\n");
 	}
 
-	private void cullLava()
-	{
-		Scene scene = client.getScene();
-		for (Tile[][] tiles : scene.getTiles())
-		{
-			for (int x = 0; x < Constants.SCENE_SIZE; ++x)
-			{
-				for (int y = 0; y < Constants.SCENE_SIZE; ++y)
-				{
-					Tile tile = tiles[x][y];
-					if (tile == null)
-					{
-						continue;
-					}
-					for (GameObject gameObject : tile.getGameObjects())
-					{
-						if ((gameObject != null && (LAVA_OBJECTS.contains(gameObject.getId()))))
-						{
-							scene.removeGameObject(gameObject);
-							break;
-						}
-					}
-					if (tile.getGroundObject() != null && (PATH_LAVA == tile.getGroundObject().getId()))
-					{
-						tile.setGroundObject(null);
-					}
-
-					if (tile.getWallObject() != null && (LAVA_OBJECTS.contains(tile.getWallObject().getId())))
-					{
-						scene.removeTile(tile);
-					}
-				}
-			}
-		}
-	}
-
 	public void clearAll()
 	{
 		for (int i = 0; i < recordedGameObjects.size(); i++)
@@ -783,7 +780,7 @@ public class VMRecolorPlugin extends Plugin
 			}
 		}
 
-		for(int i = 0; i < recordedProjectiles.size(); i++)
+		for (int i = 0; i < recordedProjectiles.size(); i++)
 		{
 			Projectile g = recordedProjectiles.get(i);
 			synchronized (modelRecolorer)
@@ -792,7 +789,7 @@ public class VMRecolorPlugin extends Plugin
 			}
 		}
 
-		for(int i = 0; i < recordedGraphicsObjects.size(); i++)
+		for (int i = 0; i < recordedGraphicsObjects.size(); i++)
 		{
 			GraphicsObject g = recordedGraphicsObjects.get(i);
 			synchronized (modelRecolorer)
@@ -800,40 +797,6 @@ public class VMRecolorPlugin extends Plugin
 				modelRecolorer.applyColors(g.getId(), "GraphicsObject", g.getModel(), false);
 			}
 		}
-		/*
-		for (int i = 0; i < recordedWallObjects.size(); i++)
-		{
-			WallObject w = recordedWallObjects.get(i);
-
-			Renderable renderable = w.getRenderable1();
-			Model model = verifyModel(renderable);
-			if (model == null)
-			{
-				log.debug("clearAll returned null! - WallObject");
-			}
-			synchronized (modelRecolorer)
-			{
-				modelRecolorer.applyColors(w.getId(), "WallObject", model, false);
-			}
-			try
-			{
-				renderable = w.getRenderable2();
-				model = verifyModel(renderable);
-				if (model == null)
-				{
-					log.debug("clearAll returned null! - WallObject");
-				}
-				synchronized (modelRecolorer)
-				{
-					modelRecolorer.applyColors(w.getId(), "WallObject", model, false);
-				}
-			}
-			catch (NullPointerException e)
-			{
-
-			}
-		}
-		*/
 	}
 
 	// recolors all GameObjects, GroundObjects, NPCs (including Hunllef) and Projectiles to their desired colors, if they are stored in the corresponding list.
@@ -853,6 +816,18 @@ public class VMRecolorPlugin extends Plugin
 		for (WallObject wallObject : recordedWallObjects)
 		{
 			recolorWallObject(wallObject);
+		}
+		for (NPC npc : recordedNpcs)
+		{
+			recolorNPC(npc);
+		}
+		for (Projectile projectile : recordedProjectiles)
+		{
+			recolorProjectile(projectile);
+		}
+		for (GraphicsObject graphicsObject : recordedGraphicsObjects)
+		{
+			recolorGraphicsObject(graphicsObject);
 		}
 	}
 

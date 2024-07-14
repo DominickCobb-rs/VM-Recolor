@@ -88,12 +88,12 @@ public interface VMRecolorConfig extends Config
 		section = color
 	)
 	@Range(
-		max = 2,
-		min = 0
+		max = 10000,
+		min = 1
 	)
-	default double brightness()
+	default int brightness()
 	{
-		return 1;
+		return 100;
 	}
 
 	@ConfigItem(
@@ -105,5 +105,20 @@ public interface VMRecolorConfig extends Config
 	default boolean onlyLava()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = "whiteBrightness",
+		name = "White brightness",
+		description = "Change the brightness of white colors (-1 hides it completely)",
+		section = color
+	)
+	@Range(
+		max = 127,
+		min = -1
+	)
+	default int whiteBrightness()
+	{
+		return 100;
 	}
 }

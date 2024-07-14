@@ -29,8 +29,9 @@ public class ModelRecolorer
 	private static boolean onlyLava = false;
 	private static boolean hideLava = false;
 	public static int hideThisColor = 65530;
+	private static int whiteBrightness = 100;
 
-	public ModelRecolorer(String filePath, Color newColor, double brightness, boolean onlyLava, boolean hideLava) throws IOException
+	public ModelRecolorer(String filePath, Color newColor, double brightness, boolean onlyLava, boolean hideLava, int whiteBrightness) throws IOException
 	{
 		cacheData(filePath);
 		recolorData(newColor);
@@ -38,6 +39,7 @@ public class ModelRecolorer
 		this.brightness = brightness;
 		this.onlyLava = onlyLava;
 		this.hideLava = hideLava;
+		this.whiteBrightness = whiteBrightness;
 	}
 
 	// creates a hashmap with all the facecolors, IDs and types (gameObject, Groundobject etc.)
@@ -188,7 +190,7 @@ public class ModelRecolorer
 				return -1;
 			}
 			// Not even going to try dynamically finding them
-			if (faceColor >= 5964)
+			if (faceColor >= 5964 || isWhite(faceColor))
 			{
 				return -1;
 			}
@@ -203,6 +205,14 @@ public class ModelRecolorer
 			return lavaHueShift(faceColor, newColor, faceColor, .5);
 		}
 		return lavaHueShift(faceColor, newColor, faceColor, 1);    // if the referenceColor equals the faceColor, the Hue of the newColor will be applied
+	}
+
+	private boolean isWhite(int faceColor)
+	{
+		int faceHue = extractHsbValues(faceColor, 6, 11);
+		int faceSat = extractHsbValues(faceColor, 3, 8);
+		int faceBri = extractHsbValues(faceColor, 7, 1);
+		return faceHue == 0 && faceSat == 0;
 	}
 
 	public int lavaHueShift(int faceColor, Color newColor, int referenceColor, double aggression)
@@ -237,8 +247,15 @@ public class ModelRecolorer
 		// Pure white colors are behaving oddly
 		int newBrightness;
 
-		newBrightness = (int) (brightnessFace * (brightness / aggression));
+		newBrightness = (int) (brightnessFace * ((brightness/100.0)/ aggression));
 		newBrightness = Math.max(1, Math.min(127, newBrightness));
+
+		if (isWhite(faceColor))
+		{
+			if (whiteBrightness!=-1)
+				return (hueRef << 10) + (7 << 7) + whiteBrightness;
+			return -1;
+		}
 
 		return (newHue << 10) + (saturationFace << 7) + newBrightness;
 	}
@@ -246,9 +263,18 @@ public class ModelRecolorer
 	// applies the colors to a model
 	public void applyColor(Model model, int[] f1, int[] f2, int[] f3)
 	{
-		int[] faceColors = model.getFaceColors1();
-		int[] faceColors2 = model.getFaceColors2();
-		int[] faceColors3 = model.getFaceColors3();
+		// The boulder models for some reason null :)
+		int[] faceColors, faceColors2, faceColors3;
+		try
+		{
+			faceColors = model.getFaceColors1();
+			faceColors2 = model.getFaceColors2();
+			faceColors3 = model.getFaceColors3();
+		}
+		catch (NullPointerException e)
+		{
+			return;
+		}
 
 		if (f1.length <= faceColors.length && f2.length <= faceColors2.length && f3.length <= faceColors3.length)
 		{
@@ -404,12 +430,13 @@ public class ModelRecolorer
 		}
 	}
 
-	public void update(Color newColor, double brightness, boolean onlyLava, boolean hideLava)
+	public void update(Color newColor, double brightness, boolean onlyLava, boolean hideLava, int whiteBrightness)
 	{
 		this.currentColor = newColor;
 		this.brightness = brightness;
 		this.onlyLava = onlyLava;
 		this.hideLava = hideLava;
+		this.whiteBrightness= whiteBrightness;
 		recolorData(newColor);
 	}
 
