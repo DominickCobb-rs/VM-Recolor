@@ -286,15 +286,8 @@ public class VMRecolorPlugin extends Plugin
 			return;
 		}
 		int ID = event.getGraphicsObject().getId();
-		if (GRAPHICS_OBJECTS.contains(ID) && ID != 1406)
-		{
-			System.out.print("GraphicsObject ID: ");
-			System.out.print(event.getGraphicsObject().getId());
-			System.out.print("\n");
-			printFaceColors(verifyModel(event.getGraphicsObject().getModel()), event.getGraphicsObject().getId());
-			return;
-		}
-		if (ID != 659)
+
+		if (ID != 659 || !GRAPHICS_OBJECTS.contains(ID))
 		{
 			return;
 		}
