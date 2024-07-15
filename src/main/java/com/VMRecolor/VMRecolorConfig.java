@@ -10,13 +10,50 @@ import net.runelite.client.config.Range;
 @ConfigGroup("VMRecolor")
 public interface VMRecolorConfig extends Config
 {
+	enum BoulderTypes
+	{
+		Default,
+		Brightness,
+		CustomHueShift,
+		CustomFullCustom,
+		Star,
+		Runite,
+		Adamantite
+	}
+
+	enum GlobalColor
+	{
+		Default,
+		Brightness,
+		HueShift,
+		CustomFullCustom
+	}
+
+	enum LavaOptions
+	{
+		Default,
+		Brightness,
+		HueShift,
+		CustomFullCustom,
+		Hidden
+	}
+
+	enum PlatformOptions
+	{
+		Default,
+		Brightness,
+		HueShift,
+		CustomFullCustom,
+		MatchLava
+	}
+
 	@ConfigSection(
-		name = "Color",
-		description = "Color settings",
+		name = "Global",
+		description = "Global color settings",
 		position = 0,
 		closedByDefault = false
 	)
-	String color = "color";
+	String globalOpt = "globalOpt";
 
 	@ConfigSection(
 		name = "Options",
@@ -26,66 +63,53 @@ public interface VMRecolorConfig extends Config
 	)
 	String options = "options";
 
+	@ConfigSection(
+		name = "Custom colors",
+		description = "Global color settings",
+		position = 2,
+		closedByDefault = false
+	)
+	String color = "color";
+
 	@ConfigItem(
 		keyName = "Boulder",
 		name = "Boulder",
 		description = "Recolor the boulder",
 		section = options
 	)
-	default boolean boulder()
+	default BoulderTypes boulder()
 	{
-		return false;
+		return BoulderTypes.Default;
 	}
 
 	@ConfigItem(
-		keyName = "LavaBeastRecolor",
+		keyName = "lavaBeast",
 		name = "Lava Beast",
 		description = "Recolor VM",
 		section = options
 	)
-	default boolean lavaBeast()
+	default GlobalColor lavaBeast()
 	{
-		return false;
+		return GlobalColor.Default;
 	}
 
 	@ConfigItem(
-		keyName = "HideLava",
-		name = "Hide All Lava",
+		keyName = "lava",
+		name = "Lava",
 		description = "Removes all objects with visible lava",
 		section = options
 	)
-	default boolean hideLava()
+	default LavaOptions lava()
 	{
-		return false;
+		return LavaOptions.Default;
 	}
 
-	@ConfigItem(
-		keyName = "UseCustomColorScheme",
-		name = "Custom Color Scheme",
-		description = "Apply a custom color to the entirety of volcanic mine",
-		section = color
-	)
-	default boolean customColor()
-	{
-		return false;
-	}
-
-	@ConfigItem(
-		keyName = "Color",
-		name = "Color",
-		description = "The color to change the lava to",
-		section = color
-	)
-	default Color color()
-	{
-		return Color.YELLOW;
-	}
-
+	// Unsure. Think this needs to be in config per item as well.
 	@ConfigItem(
 		keyName = "Brightness",
 		name = "Brightness",
 		description = "The brightness percentage applied to lava facing visuals",
-		section = color
+		section = globalOpt
 	)
 	@Range(
 		max = 10000,
@@ -96,22 +120,12 @@ public interface VMRecolorConfig extends Config
 		return 100;
 	}
 
-	@ConfigItem(
-		keyName = "onlyLava",
-		name = "Only Recolor Lava",
-		description = "Don't apply a custom color to the entire cave, just lava.",
-		section = color
-	)
-	default boolean onlyLava()
-	{
-		return true;
-	}
-
+	// Still kind of necessary? Maybe enum to match chosen color, recolor to match lava
 	@ConfigItem(
 		keyName = "whiteBrightness",
 		name = "White brightness",
 		description = "Change the brightness of white colors (-1 hides it completely)",
-		section = color
+		section = globalOpt
 	)
 	@Range(
 		max = 127,
@@ -120,5 +134,126 @@ public interface VMRecolorConfig extends Config
 	default int whiteBrightness()
 	{
 		return 100;
+	}
+
+	@ConfigItem(
+		keyName = "wall",
+		name = "Walls",
+		description = "Wall option",
+		section = options
+	)
+	default GlobalColor wall()
+	{
+		return GlobalColor.Default;
+	}
+
+	@ConfigItem(
+		keyName = "lowerLevelFloor",
+		name = "Lower Floor",
+		description = "Lower level floor option",
+		section = options
+	)
+	default GlobalColor lowerLevelFloor()
+	{
+		return GlobalColor.Default;
+	}
+
+	@ConfigItem(
+		keyName = "upperLevelFloor",
+		name = "Upper Floor",
+		description = "Upper level floor option",
+		section = options
+	)
+	default GlobalColor upperLevelFloor()
+	{
+		return GlobalColor.Default;
+	}
+
+	@ConfigItem(
+		keyName = "platform",
+		name = "Platforms",
+		description = "Platform option",
+		section = options
+	)
+	default PlatformOptions platform()
+	{
+		return PlatformOptions.Default;
+	}
+
+	@ConfigItem(
+		keyName = "wallCustomColor",
+		name = "Walls",
+		description = "Wall color",
+		section = color
+	)
+	default Color wallColor()
+	{
+		return Color.RED;
+	}
+
+	@ConfigItem(
+		keyName = "lowerLevelFloorCustomColor",
+		name = "Lower Floor",
+		description = "Lower level floor color",
+		section = color
+	)
+	default Color lowerLevelFloorColor()
+	{
+		return Color.RED;
+	}
+
+	@ConfigItem(
+		keyName = "upperLevelFloorCustomColor",
+		name = "Upper Floor",
+		description = "Upper level floor color",
+		section = color
+	)
+	default Color upperLevelFloorColor()
+	{
+		return Color.RED;
+	}
+
+	@ConfigItem(
+		keyName = "platformCustomColor",
+		name = "Platforms",
+		description = "Color for the platforms",
+		section = color
+	)
+	default Color platformColor()
+	{
+		return Color.RED;
+	}
+
+	@ConfigItem(
+		keyName = "BoulderCustomColor",
+		name = "Boulder",
+		description = "Color for the boulder",
+		section = color
+	)
+	default Color boulderColor()
+	{
+		return Color.RED;
+	}
+
+	@ConfigItem(
+		keyName = "lavaBeastCustomColor",
+		name = "Lava Beast",
+		description = "Color for the Lava Beast",
+		section = color
+	)
+	default Color lavaBeastColor()
+	{
+		return Color.RED;
+	}
+
+	@ConfigItem(
+		keyName = "lavaColor",
+		name = "Lava",
+		description = "Color for the lava",
+		section = color
+	)
+	default Color lavaColor()
+	{
+		return Color.RED;
 	}
 }

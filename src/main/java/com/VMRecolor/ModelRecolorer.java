@@ -1,5 +1,11 @@
 package com.VMRecolor;
 
+import static com.VMRecolor.VMRecolorPlugin.LAVA;
+import static com.VMRecolor.VMRecolorPlugin.LAVA_BEAST;
+import static com.VMRecolor.VMRecolorPlugin.LOWER_LEVEL_FLOOR;
+import static com.VMRecolor.VMRecolorPlugin.PLATFORMS;
+import static com.VMRecolor.VMRecolorPlugin.UPPER_LEVEL_FLOOR;
+import static com.VMRecolor.VMRecolorPlugin.WALL_OBJECTS;
 import java.awt.Color;
 import java.io.BufferedReader;
 import java.io.FileNotFoundException;
@@ -9,42 +15,24 @@ import java.io.InputStreamReader;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
+import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Model;
-
 
 @Slf4j
 public class ModelRecolorer
 {
+
+	@Inject
+	private VMRecolorConfig config;
+
 	private Map<String, Map<Integer, int[][]>> originalColorData = new HashMap<>();
 	private Map<String, Map<Integer, int[][]>> recoloredColorData = new HashMap<>();
 
-	private static final List<Integer> GREEN_OBJECTS = Arrays.asList(35966, 35969, 35970, 35975, 35976, 35978, 35979, 36003, 36004, 36005, 36006, 36007, 36008);
-	private static final int greenReference = 10758;
-	private static final int redReference = 65452;
-	private static Color currentColor;
-	private static double brightness = 1.0;
-	private static boolean onlyLava = false;
-	private static boolean hideLava = false;
-	public static int hideThisColor = 65530;
-	private static int whiteBrightness = 100;
-
-	public ModelRecolorer(String filePath, Color newColor, double brightness, boolean onlyLava, boolean hideLava, int whiteBrightness) throws IOException
-	{
-		cacheData(filePath);
-		recolorData(newColor);
-		this.currentColor = newColor;
-		this.brightness = brightness;
-		this.onlyLava = onlyLava;
-		this.hideLava = hideLava;
-		this.whiteBrightness = whiteBrightness;
-	}
-
 	// creates a hashmap with all the facecolors, IDs and types (gameObject, Groundobject etc.)
 	// could be simplified if the .txt gets simplified
-	private void cacheData(String filePath) throws IOException
+	public void cacheData(String filePath) throws IOException
 	{
 		try (InputStream inputStream = getClass().getResourceAsStream(filePath))
 		{
@@ -90,10 +78,10 @@ public class ModelRecolorer
 	}
 
 
+	// This is great and all but it's not super convenient for replacing individual IDs which is this plugin's need
 	// creates a second hashmap with the recolored values, based of the vanilla hashmap
-	public void recolorData(Color newColor)
+	public void recolorData()
 	{
-		currentColor = newColor;
 		recoloredColorData.clear();
 		originalColorData.forEach((type, models) -> {
 			Map<Integer, int[][]> recoloredMap = new HashMap<>();
@@ -101,22 +89,7 @@ public class ModelRecolorer
 				int[][] recoloredColors = new int[colors.length][];
 				for (int i = 0; i < colors.length; i++)
 				{
-					if (VMRecolorPlugin.LAVA_OBJECTS.contains(id) || VMRecolorPlugin.PATH_LAVA == id || id == 7817)
-					{
-						recoloredColors[i] = recolorLava(colors[i], newColor, newColor, id);
-					}
-					else if (currentColor != null && (VMRecolorPlugin.THE_BOULDER.contains(id) || VMRecolorPlugin.THE_BOULDER_NPCS.contains(id))) // weird transparency effects we need to preserve
-					{
-						recoloredColors[i] = recolorBoulder(colors[i], newColor, newColor, id);
-					}
-					else if (currentColor != null)
-					{
-						recoloredColors[i] = recolor(colors[i], newColor, newColor, id);
-					}
-					else
-					{
-						recoloredColors[i] = colors[i];
-					}
+					recoloredColors[i] = recolor(colors[i], id, VMRecolorPlugin.WALL_OBJECTS.contains(id));
 				}
 				recoloredMap.put(id, recoloredColors);
 			});
@@ -124,87 +97,338 @@ public class ModelRecolorer
 		});
 	}
 
+	private int[][] getOriginalColorDataForTypeAndId(String type, int id)
+	{
+		if (originalColorData.containsKey(type))
+		{
+			Map<Integer, int[][]> models = originalColorData.get(type);
+			if (models.containsKey(id))
+			{
+				return models.get(id);
+			}
+		}
+		log.info("ORIGINAL COLOR DATA DIDN'T CONTAIN: {}", type);
+		return null;
+	}
+
+	private int[][] recolorEntry(int id, int[][] colors, Color newColor, boolean isLava, boolean isWall)
+	{
+		int[][] recoloredColors = new int[colors.length][];
+		for (int[] color : colors)
+		{
+			recolor(color, id, isWall);
+		}
+		return recoloredColors;
+	}
+
+	public void updateRecolorData(String type, int id, Color newColor, boolean isLava, boolean isWall)
+	{
+		int[][] originalColors = getOriginalColorDataForTypeAndId(type, id);
+		if (originalColors != null)
+		{
+			int[][] recoloredColors = recolorEntry(id, originalColors, newColor, isLava, isWall);
+			recoloredColorData.computeIfAbsent(type, k -> new HashMap<>()).put(id, recoloredColors);
+		}
+	}
+
+	public void updateRecolorData(String type, int[] ids, Color newColor, boolean isLava, boolean isWall)
+	{
+		for (int id : ids)
+		{
+			int[][] originalColors = getOriginalColorDataForTypeAndId(type, id);
+			if (originalColors != null)
+			{
+				int[][] recoloredColors = recolorEntry(id, originalColors, newColor, isLava, isWall);
+				recoloredColorData.computeIfAbsent(type, k -> new HashMap<>()).put(id, recoloredColors);
+			}
+		}
+	}
+
+	private boolean isBoulder(int id)
+	{
+		return VMRecolorPlugin.THE_BOULDER.contains(id) || VMRecolorPlugin.THE_BOULDER_NPCS.contains(id);
+	}
+
 	// recolors a single array of colors (e.g. facecolors1 of a single model)
-	private int[] recolor(int[] originalColors, Color newColor, Color secondaryColor, int id)
+	private int[] recolor(int[] originalColors, int id, boolean isWall)
 	{
 		int[] newColors = new int[originalColors.length];
 		for (int i = 0; i < originalColors.length; i++)
 		{
-			newColors[i] = newColorHsb(originalColors[i], newColor, secondaryColor, id);
+			if (isWall || WALL_OBJECTS.contains(id))
+			{
+				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.wallColor(), id, config.wall());
+			}
+			else if (isBoulder(id))
+			{
+				newColors[i] = newBoulderColorHsb(originalColors[i], config.boulderColor(), id, config.boulder());
+			}
+			else if (LOWER_LEVEL_FLOOR.contains(id))
+			{
+				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lowerLevelFloorColor(), id, config.lowerLevelFloor());
+			}
+			else if (UPPER_LEVEL_FLOOR.contains(id))
+			{
+				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.upperLevelFloorColor(), id, config.upperLevelFloor());
+			}
+			else if (PLATFORMS.contains(id))
+			{
+				newColors[i] = newColorPlatformHandler(originalColors[i], config.platformColor(), id, config.platform());
+			}
+			else if (id == LAVA_BEAST)
+			{
+				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lavaBeastColor(), id, config.lavaBeast());
+			}
+			else if (LAVA.contains(id) || id == 660 || id == 659) // lava projectiles and splats
+			{
+				newColors[i] = newLavaColorHsb(originalColors[i], config.lavaColor(), id);
+			}
+			else
+			{
+				newColors[i] = originalColors[i];
+			}
 		}
 		return newColors;
 	}
 
-	private int[] recolorLava(int[] originalColors, Color newColor, Color secondaryColor, int id)
-	{
-		int[] newColors = new int[originalColors.length];
-		for (int i = 0; i < originalColors.length; i++)
-		{
-			newColors[i] = newLavaColorHsb(originalColors[i], newColor, secondaryColor, id);
-		}
-		return newColors;
-	}
-
-	private int[] recolorBoulder(int[] originalColors, Color newColor, Color secondaryColor, int id)
-	{
-		int[] newColors = new int[originalColors.length];
-		for (int i = 0; i < originalColors.length; i++)
-		{
-			newColors[i] = newBoulderColorHsb(originalColors[i], newColor, secondaryColor, id);
-		}
-		return newColors;
-	}
-
-	public int newBoulderColorHsb(int faceColor, Color newColor, Color secondaryColor, int id)
+	public int newBoulderColorHsb(int faceColor, Color newColor, int id, VMRecolorConfig.BoulderTypes boulderType)
 	{
 		if (faceColor == -1 || faceColor == 0)
 		{
 			return faceColor;
 		}
-		if (faceColor <= 1000)
+
+		switch (boulderType)
 		{
-			return lavaHueShift(faceColor, newColor, faceColor, .5);
+			case Default:
+				return faceColor;
+
+			case Brightness:
+			{
+				int hueFace = extractHsbValues(faceColor, 6, 11);
+				int saturationFace = extractHsbValues(faceColor, 3, 8);
+				int brightnessFace = extractHsbValues(faceColor, 7, 1);
+
+				// Apply the brightness multiplier
+				int newBrightness = (int) (brightnessFace * (config.brightness() / 100.0));
+				// Ensure the brightness stays within the valid range (0-127)
+				newBrightness = Math.max(1, Math.min(127, newBrightness));
+				return (hueFace << 10) + (saturationFace << 7) + newBrightness;
+			}
+
+			case CustomHueShift:
+			{
+				return hueShift(faceColor, config.boulderColor());
+			}
+
+			case CustomFullCustom:
+			{
+				if (id == 31039)
+				{
+					return lavaHueShift(faceColor, newColor, faceColor, 1);
+				}
+				return -1;
+			}
+			// Can directly apply RS color IDs with these, yeah?
+			case Star:
+
+				int[] boulderColors = {2700, 2702, 3982, 2962, 1808, 2977, 2849, 5964, 9164};
+				int[] starColors = {29070, 29072, 29070, 29070, 29070, -16112, -16112, -16104, -15086};
+				if (faceColor >= 5700 && faceColor <= 6000)
+				{
+					return -16112+faceColor-5964;
+				}
+				if (faceColor > 9000)
+				{
+					return -15086-faceColor+9164;
+				}
+				if (faceColor >= 2600 && faceColor < 3000)
+				{
+					return 29070 + faceColor - 2700;
+				}
+				if (faceColor >= 3900 && faceColor <= 4000)
+				{
+					return 29070+faceColor-3982;
+				}
+				if(faceColor>1700 && faceColor<2000)
+					return 29070+faceColor-1808;
+				//128 and 265
+				return faceColor;
+
+			case Runite:
+				//TBD 21662
+				return faceColor;
+
+			case Adamantite:
+				//TBD
+				return faceColor;
+
+			default:
+				return -1; //how
 		}
-		return lavaHueShift(faceColor, newColor, faceColor, 1);    // if the referenceColor equals the faceColor, the Hue of the newColor will be applied
 	}
 
-	public int newLavaColorHsb(int faceColor, Color newColor, Color secondaryColor, int id)
+	private int brighten(int faceColor, int amt)
 	{
-		if (onlyLava && id != 31039) //whirlpool
-		{
-			int newHue = extractHsbValues(faceColor, 6, 11);
-			int defaultLavaHue = extractHsbValues(9139, 6, 11);
-			if (extractHsbValues(faceColor, 3, 8) > 2 && extractHsbValues(faceColor, 7, 1) < 30)
-			{
-				if (defaultLavaHue - newHue > 2)
-				{
-					return faceColor;
-				}
-			}
-		}
+		int faceHue = getHue(faceColor);
+		int faceSat = getSaturation(faceColor);
+		int faceBri = getBrightness(faceColor);
+		return (faceHue << 10) + (faceSat << 7) + faceBri + amt;
+	}
 
-		if (hideLava && id != VMRecolorPlugin.LAVA_BEAST)
-		{
-			if (id == 31039)
-			{
-				return -1;
-			}
-			// Not even going to try dynamically finding them
-			if (faceColor >= 5964 || isWhite(faceColor))
-			{
-				return -1;
-			}
-		}
-
+	public int newLavaColorHsb(int faceColor, Color newColor, int id)
+	{
 		if (faceColor == 2)
 		{
 			return faceColor;
 		}
-		if (faceColor <= 1000)
+		switch (config.lava())
 		{
-			return lavaHueShift(faceColor, newColor, faceColor, .5);
+			case Default:
+				return faceColor;
+
+			case Brightness:
+			{
+				int hueFace = extractHsbValues(faceColor, 6, 11);
+				int saturationFace = extractHsbValues(faceColor, 3, 8);
+				int brightnessFace = extractHsbValues(faceColor, 7, 1);
+
+				// Apply the brightness multiplier
+				int newBrightness = (int) (brightnessFace * (config.brightness() / 100.0));
+				// Ensure the brightness stays within the valid range (0-127)
+				newBrightness = Math.max(1, Math.min(127, newBrightness));
+				return (hueFace << 10) + (saturationFace << 7) + newBrightness;
+			}
+
+			case HueShift:
+			{
+				return lavaHueShift(faceColor, config.lavaColor(), faceColor, 1);
+			}
+
+			case CustomFullCustom:
+			{
+				if (id == 31039)
+				{
+					return lavaHueShift(faceColor, newColor, faceColor, 1);
+				}
+				return -1;
+			}
+
+			case Hidden:
+			{
+				if (id == VMRecolorPlugin.LAVA_BEAST)
+				{
+					return faceColor;
+				}
+				if (id == 31039)
+				{
+					return -1;
+				}
+				// Not even going to try dynamically finding them
+				if ((faceColor > 5900 && faceColor < 6000) || faceColor > 9000 || isWhite(faceColor))
+				{
+					return -1;
+				}
+				else
+				{
+					log.info("{} not in lavaFaceColors?", faceColor);
+				}
+				return faceColor;
+			}
+
+			default:
+				return -1; //how
 		}
-		return lavaHueShift(faceColor, newColor, faceColor, 1);    // if the referenceColor equals the faceColor, the Hue of the newColor will be applied
+	}
+
+	public int newColorPlatformHandler(int faceColor, Color newColor, int id, VMRecolorConfig.PlatformOptions globalColor)
+	{
+		if (faceColor == 2)
+		{
+			return faceColor;
+		}
+		switch (globalColor)
+		{
+			case Default:
+				return faceColor;
+
+			case Brightness:
+			{
+				int hueFace = extractHsbValues(faceColor, 6, 11);
+				int saturationFace = extractHsbValues(faceColor, 3, 8);
+				int brightnessFace = extractHsbValues(faceColor, 7, 1);
+
+				// Apply the brightness multiplier
+				int newBrightness = (int) (brightnessFace * (config.brightness() / 100.0));
+				// Ensure the brightness stays within the valid range (0-127)
+				newBrightness = Math.max(1, Math.min(127, newBrightness));
+				return (hueFace << 10) + (saturationFace << 7) + newBrightness;
+			}
+
+			case HueShift:
+			{
+				return hueShift(faceColor, newColor);
+			}
+			case CustomFullCustom:
+			{
+				// Implement logic for shifting saturation and brightness along with hue to more closely match the desired color
+				return -1;
+			}
+
+			case MatchLava:
+			{
+				if (config.lava() == VMRecolorConfig.LavaOptions.Hidden)
+				{
+					return faceColor;
+				}
+				return newLavaColorHsb(faceColor, newColor, id);
+			}
+			default:
+				return -1; //how
+		}
+	}
+
+	public int newColorHsbEnumHandler(int faceColor, Color newColor, int id, VMRecolorConfig.GlobalColor globalColor)
+	{
+		if (faceColor == 2)
+		{
+			return faceColor;
+		}
+		if ((faceColor > 9000 || isWhite(faceColor)) && !PLATFORMS.contains(id)) //We don't want to send off platforms because they might turn invisible
+		{
+			return newLavaColorHsb(faceColor, newColor, id);
+		}
+		switch (globalColor)
+		{
+			case Default:
+				return faceColor;
+
+			case Brightness:
+			{
+				int hueFace = extractHsbValues(faceColor, 6, 11);
+				int saturationFace = extractHsbValues(faceColor, 3, 8);
+				int brightnessFace = extractHsbValues(faceColor, 7, 1);
+
+				// Apply the brightness multiplier
+				int newBrightness = (int) (brightnessFace * (config.brightness() / 100.0));
+				// Ensure the brightness stays within the valid range (0-127)
+				newBrightness = Math.max(1, Math.min(127, newBrightness));
+				return (hueFace << 10) + (saturationFace << 7) + newBrightness;
+			}
+
+			case HueShift:
+			{
+				return hueShift(faceColor, newColor);
+			}
+			case CustomFullCustom:
+			{
+				// Implement logic for shifting saturation and brightness along with hue to more closely match the desired color
+				return -1;
+			}
+
+			default:
+				return -1; //how
+		}
 	}
 
 	private boolean isWhite(int faceColor)
@@ -217,20 +441,6 @@ public class ModelRecolorer
 
 	public int lavaHueShift(int faceColor, Color newColor, int referenceColor, double aggression)
 	{
-		// If people want the default VM look but not so bright
-		if (newColor == null)
-		{
-			int hueFace = extractHsbValues(faceColor, 6, 11);
-			int saturationFace = extractHsbValues(faceColor, 3, 8);
-			int brightnessFace = extractHsbValues(faceColor, 7, 1);
-
-			// Apply the brightness multiplier
-			int newBrightness = (int) (brightnessFace * (brightness / aggression));
-			// Ensure the brightness stays within the valid range (0-127)
-			newBrightness = Math.max(1, Math.min(127, newBrightness));
-			return (hueFace << 10) + (saturationFace << 7) + newBrightness;
-		}
-
 		int newColorHsb = colorToRs2hsb(newColor);
 
 		// values of the facecolor
@@ -247,17 +457,19 @@ public class ModelRecolorer
 		// Pure white colors are behaving oddly
 		int newBrightness;
 
-		newBrightness = (int) (brightnessFace * ((brightness/100.0)/ aggression));
+		newBrightness = (int) (brightnessFace * ((config.brightness() / 100.0) / aggression));
 		newBrightness = Math.max(1, Math.min(127, newBrightness));
 
 		if (isWhite(faceColor))
 		{
-			if (whiteBrightness!=-1)
-				return (hueRef << 10) + (7 << 7) + whiteBrightness;
+			if (config.whiteBrightness() != -1)
+			{
+				return (hueRef << 10) + (7 << 7) + config.whiteBrightness();
+			}
 			return -1;
 		}
 
-		return (newHue << 10) + (saturationFace << 7) + newBrightness;
+		return (hueRef << 10) + (saturationFace << 7) + newBrightness;
 	}
 
 	// applies the colors to a model
@@ -289,79 +501,18 @@ public class ModelRecolorer
 	}
 
 	// returns the new color in the rs2hsb format
-	public int newColorHsb(int faceColor, Color newColor, Color secondaryColor, int id)
+	public int newColorHsb(int faceColor, Color newColor, int id)
 	{
-		if (onlyLava)
+		if (faceColor > 9000 || isWhite(faceColor))
 		{
-			return faceColor;
+			return newLavaColorHsb(faceColor, newColor, id);
 		}
-		// > 60k are mostly the very bright colors.
-		if (faceColor > 60000)
-		{
-			if (!secondaryColor.equals(newColor))
-			{
-				return brightColors(faceColor, secondaryColor);
-			}
-			return brightColors(faceColor, newColor);
-		}
-
-		return hueShift(faceColor, newColor, faceColor);
-	}
-
-	// Method is functional, but has a lot of variables. Will likely be adressed in a future iteration.
-	//
-	// General Idea: calculate the distance of the vanilla facecolor to a reference color (65452) and then apply that distance
-	// to the new (reference) color, to get a similar shifted color.
-	public int brightColors(int faceColor, Color newColor)
-	{
-		int newColorHsb = colorToRs2hsb(newColor);
-
-		// values of the facecolor
-		int hueFace = extractHsbValues(faceColor, 6, 11);
-		int saturationFace = extractHsbValues(faceColor, 3, 8);
-		int brightnessFace = extractHsbValues(faceColor, 7, 1);
-		// values of the new reference color
-		int hueRef = extractHsbValues(newColorHsb, 6, 11);
-		int saturationRef = extractHsbValues(newColorHsb, 3, 8);
-		int brightnessRef = extractHsbValues(newColorHsb, 7, 1);
-		// pre-calculated values for the current reference color (65452)
-		int referenceHue = 63;
-		int referenceSat = 7;
-		int referenceBright = 44;
-
-		int hueDiff = referenceHue - hueFace;
-		int satDiff = referenceSat - saturationFace;
-		int brightDiff = referenceBright - brightnessFace;
-
-		int newHue = hueRef - hueDiff;
-		newHue = (newHue % 64 + 64) % 64;
-
-		int newSat = saturationRef - satDiff;
-		newSat = (newSat % 8 + 8) % 8;
-
-		int newBright = brightnessRef - brightDiff / 4;     // reducing the brightness difference before applying it, to prevent complete white/black results
-		newBright -= Math.min(newSat, newBright / 2);
-		// making sure that the new brightness is never below 0 or above 127
-		if (newBright < 0)
-		{
-			newBright = 0;
-		}
-		if (newBright > 127)
-		{
-			newBright = 127;
-		}
-
-		return (newHue << 10) + (newSat << 7) + newBright;
+		return hueShift(faceColor, newColor);
 	}
 
 	// same concept as brightColors, but only shifts Hue
-	public int hueShift(int faceColor, Color newColor, int referenceColor)
+	public int hueShift(int faceColor, Color newColor)
 	{
-		if (newColor == null) // No idea how this is getting here but really can't be bothered to work it out
-		{
-			return faceColor;
-		}
-
 		int newColorHsb = colorToRs2hsb(newColor);
 
 		// values of the facecolor
@@ -371,14 +522,32 @@ public class ModelRecolorer
 		// value of the new reference color
 		int hueRef = extractHsbValues(newColorHsb, 6, 11);
 		// value for the current reference color
-		int referenceHue = extractHsbValues(referenceColor, 6, 11);
 
-		int hueDiff = referenceHue - hueFace;
+		//int referenceHue = extractHsbValues(referenceColor, 6, 11);
 
-		int newHue = hueRef - hueDiff;
+		//int hueDiff = referenceHue - hueFace;
+
+		//int newHue = hueRef - hueDiff;
+
 		// newHue = (newHue % 64 + 64) % 64;
 
-		return (newHue << 10) + (saturationFace << 7) + brightnessFace;
+		return (hueRef << 10) + (saturationFace << 7) + brightnessFace;
+	}
+
+
+	static int getBrightness(int faceColor)
+	{
+		return (((1 << 7) - 1) & (faceColor));
+	}
+
+	static int getSaturation(int faceColor)
+	{
+		return (((1 << 3) - 1) & (faceColor >> (8 - 1)));
+	}
+
+	static int getHue(int faceColor)
+	{
+		return (((1 << 6) - 1) & (faceColor >> (11 - 1)));
 	}
 
 	// Returns the hsb values
@@ -419,25 +588,16 @@ public class ModelRecolorer
 
 		if (f1 != null && f2 != null && f3 != null)
 		{
+			//recolorWall();
 			if (lavaWall)
 			{
-				applyColor(model, recolorLava(f1, newColor, newColor, 0), recolorLava(f2, newColor, newColor, 0), recolorLava(f3, newColor, newColor, 0));
+				applyColor(model, recolor(f1, 0, true), recolor(f2, 0, true), recolor(f3, 0, true));
 			}
 			else
 			{
-				applyColor(model, recolor(f1, newColor, newColor, 0), recolor(f2, newColor, newColor, 0), recolor(f3, newColor, newColor, 0));
+				applyColor(model, recolor(f1, 0, true), recolor(f2, 0, true), recolor(f3, 0, true));
 			}
 		}
-	}
-
-	public void update(Color newColor, double brightness, boolean onlyLava, boolean hideLava, int whiteBrightness)
-	{
-		this.currentColor = newColor;
-		this.brightness = brightness;
-		this.onlyLava = onlyLava;
-		this.hideLava = hideLava;
-		this.whiteBrightness= whiteBrightness;
-		recolorData(newColor);
 	}
 
 	// deletes the hashmaps
