@@ -16,6 +16,7 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Model;
@@ -29,6 +30,12 @@ public class ModelRecolorer
 
 	private Map<String, Map<Integer, int[][]>> originalColorData = new HashMap<>();
 	private Map<String, Map<Integer, int[][]>> recoloredColorData = new HashMap<>();
+
+	static final int DARK_PURPLE = 48;
+	static final int PURPLE = 49;
+	static final int YELLOW = 8;
+	static final int ORANGE = 5;
+	static final int GREEN = 28;
 
 	// creates a hashmap with all the facecolors, IDs and types (gameObject, Groundobject etc.)
 	// could be simplified if the .txt gets simplified
@@ -111,7 +118,7 @@ public class ModelRecolorer
 		return null;
 	}
 
-	private int[][] recolorEntry(int id, int[][] colors, Color newColor, boolean isLava, boolean isWall)
+	private int[][] recolorEntry(int id, int[][] colors, boolean isWall)
 	{
 		int[][] recoloredColors = new int[colors.length][];
 		for (int[] color : colors)
@@ -121,24 +128,24 @@ public class ModelRecolorer
 		return recoloredColors;
 	}
 
-	public void updateRecolorData(String type, int id, Color newColor, boolean isLava, boolean isWall)
+	public void updateRecolorData(String type, int id, boolean isWall)
 	{
 		int[][] originalColors = getOriginalColorDataForTypeAndId(type, id);
 		if (originalColors != null)
 		{
-			int[][] recoloredColors = recolorEntry(id, originalColors, newColor, isLava, isWall);
+			int[][] recoloredColors = recolorEntry(id, originalColors, isWall);
 			recoloredColorData.computeIfAbsent(type, k -> new HashMap<>()).put(id, recoloredColors);
 		}
 	}
 
-	public void updateRecolorData(String type, int[] ids, Color newColor, boolean isLava, boolean isWall)
+	public void updateRecolorData(String type, Set<Integer> ids, boolean isWall)
 	{
 		for (int id : ids)
 		{
 			int[][] originalColors = getOriginalColorDataForTypeAndId(type, id);
 			if (originalColors != null)
 			{
-				int[][] recoloredColors = recolorEntry(id, originalColors, newColor, isLava, isWall);
+				int[][] recoloredColors = recolorEntry(id, originalColors, isWall);
 				recoloredColorData.computeIfAbsent(type, k -> new HashMap<>()).put(id, recoloredColors);
 			}
 		}
@@ -231,28 +238,37 @@ public class ModelRecolorer
 			}
 			// Can directly apply RS color IDs with these, yeah?
 			case Star:
-
-				int[] boulderColors = {2700, 2702, 3982, 2962, 1808, 2977, 2849, 5964, 9164};
-				int[] starColors = {29070, 29072, 29070, 29070, 29070, -16112, -16112, -16104, -15086};
-				if (faceColor >= 5700 && faceColor <= 6000)
+				// classify outside hues, classify desired star hues
+				// match hues and then just apply whatever boulder sat/brightness is
+				int hue = getHue(faceColor);
+				if (hue == YELLOW)
 				{
-					return -16112+faceColor-5964;
+					return hsbTors2(PURPLE, 2, 10);
 				}
-				if (faceColor > 9000)
+				if (hue == ORANGE)
 				{
-					return -15086-faceColor+9164;
+					if (getBrightness(faceColor) > 36)
+					{
+						return hsbTors2(DARK_PURPLE, 2, 5);
+					}
+					else
+					{
+						return hsbTors2(GREEN, getSaturation(faceColor), getBrightness(faceColor)/3);
+					}
 				}
-				if (faceColor >= 2600 && faceColor < 3000)
+				// Reds
+				if (hue == 1)
 				{
-					return 29070 + faceColor - 2700;
+					return hsbTors2(GREEN+1, getSaturation(faceColor), getBrightness(faceColor)/3);
 				}
-				if (faceColor >= 3900 && faceColor <= 4000)
+				if (hue == 2)
 				{
-					return 29070+faceColor-3982;
+					return hsbTors2(GREEN, getSaturation(faceColor), getBrightness(faceColor)/3);
 				}
-				if(faceColor>1700 && faceColor<2000)
-					return 29070+faceColor-1808;
-				//128 and 265
+				if (hue == 3)
+				{
+					return hsbTors2(GREEN-1, getSaturation(faceColor), getBrightness(faceColor)/3);
+				}
 				return faceColor;
 
 			case Runite:
@@ -268,12 +284,17 @@ public class ModelRecolorer
 		}
 	}
 
+	private int hsbTors2(int h, int s, int b)
+	{
+		return (h << 10) + (s << 7) + b;
+	}
+
 	private int brighten(int faceColor, int amt)
 	{
 		int faceHue = getHue(faceColor);
 		int faceSat = getSaturation(faceColor);
 		int faceBri = getBrightness(faceColor);
-		return (faceHue << 10) + (faceSat << 7) + faceBri + amt;
+		return hsbTors2(faceHue, faceSat, faceBri + amt);
 	}
 
 	public int newLavaColorHsb(int faceColor, Color newColor, int id)
@@ -328,10 +349,6 @@ public class ModelRecolorer
 				if ((faceColor > 5900 && faceColor < 6000) || faceColor > 9000 || isWhite(faceColor))
 				{
 					return -1;
-				}
-				else
-				{
-					log.info("{} not in lavaFaceColors?", faceColor);
 				}
 				return faceColor;
 			}
@@ -394,7 +411,7 @@ public class ModelRecolorer
 		{
 			return faceColor;
 		}
-		if ((faceColor > 9000 || isWhite(faceColor)) && !PLATFORMS.contains(id)) //We don't want to send off platforms because they might turn invisible
+		if ((faceColor > 9000 || isWhite(faceColor)) && !((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST))
 		{
 			return newLavaColorHsb(faceColor, newColor, id);
 		}
@@ -503,7 +520,7 @@ public class ModelRecolorer
 	// returns the new color in the rs2hsb format
 	public int newColorHsb(int faceColor, Color newColor, int id)
 	{
-		if (faceColor > 9000 || isWhite(faceColor))
+		if (faceColor > 9000 || isWhite(faceColor) && !((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST))
 		{
 			return newLavaColorHsb(faceColor, newColor, id);
 		}

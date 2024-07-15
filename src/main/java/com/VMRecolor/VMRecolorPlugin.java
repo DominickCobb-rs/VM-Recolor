@@ -33,6 +33,7 @@ import net.runelite.api.TileObject;
 import net.runelite.api.WallObject;
 import net.runelite.api.coords.WorldArea;
 import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.CommandExecuted;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GraphicsObjectCreated;
 import net.runelite.api.events.GroundObjectSpawned;
@@ -153,6 +154,39 @@ public class VMRecolorPlugin extends Plugin
 	}
 
 	@Subscribe
+	public void onCommandExecuted(CommandExecuted command)
+	{
+		if (command.getCommand().equalsIgnoreCase("vm"))
+		{
+			int arg = Integer.parseInt(command.getArguments()[0]);
+			Scene scene = client.getScene();
+			for (Tile[][] tiles : scene.getTiles())
+			{
+				for (int x = 0; x < Constants.SCENE_SIZE; ++x)
+				{
+					for (int y = 0; y < Constants.SCENE_SIZE; ++y)
+					{
+						Tile tile = tiles[x][y];
+						if (tile == null)
+						{
+							continue;
+						}
+						for (GameObject gameObject : tile.getGameObjects())
+						{
+							if (gameObject != null && (gameObject.getId()==arg))
+							{
+								System.out.println("GameObject ID: "+arg);
+								printFaceColors(verifyModel(gameObject.getRenderable()), arg);
+								return;
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
+	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded event)
 	{
 		if (!client.isKeyPressed(KeyCode.KC_SHIFT) || (event.getType() != MenuAction.EXAMINE_OBJECT.getId() && event.getMenuEntry().getType() != MenuAction.EXAMINE_NPC))
@@ -200,9 +234,12 @@ public class VMRecolorPlugin extends Plugin
 			return;
 		}
 
-		if (event.getKey().equalsIgnoreCase("Boulder"))
+		if (event.getKey().equalsIgnoreCase("Boulder") || event.getKey().equalsIgnoreCase("BoulderCustomColor"))
 		{
+			modelRecolorer.updateRecolorData("GameObject",THE_BOULDER, false);
+			modelRecolorer.updateRecolorData("NPC",THE_BOULDER_NPCS, false);
 			recolorBoulder();
+			return;
 		}
 
 		if (event.getKey().equalsIgnoreCase("LavaBeastRecolor"))
