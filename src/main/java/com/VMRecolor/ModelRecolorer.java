@@ -154,7 +154,7 @@ public class ModelRecolorer
 			{
 				newColors[i] = newBoulderColorHsb(originalColors[i], config.boulderColor(), id, config.boulder());
 			}
-			else if (LOWER_LEVEL_FLOOR.contains(id) || GRAPHICS_OBJECTS.contains(id))
+			else if (LOWER_LEVEL_FLOOR.contains(id) || GRAPHICS_OBJECTS.contains(id) || (config.lava()== VMRecolorConfig.LavaOptions.Hidden && (id==660 || id ==659))) // lava projectiles and splats
 			{
 				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lowerLevelFloorColor(), id, config.lowerLevelFloor());
 			}
@@ -170,9 +170,9 @@ public class ModelRecolorer
 			{
 				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lavaBeastColor(), id, config.lavaBeast());
 			}
-			else if (LAVA.contains(id) || id == 660 || id == 659) // lava projectiles and splats
+			else if (LAVA.contains(id))
 			{
-				newColors[i] = newLavaColorHsb(originalColors[i], config.lavaColor(), id);
+				newColors[i] = newLavaColorHsb(originalColors[i], id);
 			}
 			else
 			{
@@ -191,9 +191,6 @@ public class ModelRecolorer
 
 		switch (boulderType)
 		{
-			case Default:
-				return faceColor;
-
 			case Brightness:
 			{
 				int hueFace = extractHsbValues(faceColor, 6, 11);
@@ -207,29 +204,27 @@ public class ModelRecolorer
 				return (hueFace << 10) + (saturationFace << 7) + newBrightness;
 			}
 
-			case CustomHueShift:
+			case HueShift:
 			{
 				return hueShift(faceColor, config.boulderColor());
 			}
-
-			case CustomFullCustom:
-			{
-				return -1;
-			}
-			// Can directly apply RS color IDs with these, yeah?
+			// I like the way stars look but hate mining them
 			case Star:
-				// classify outside hues, classify desired star hues
-				// match hues and then just apply whatever boulder sat/brightness is
+			// No good way to recolor each stage of the boulder. It would involve going through the arrays individually and creating entirely new palletes.
+			// If there's a way to edit rsmodels with their natural hsbs I would love to do this and just export as needed, but currently is not viable.
+			// When it breaks, it reveals the model of the next boulder but without the
+			// custom colors applied
+			{
 				int hue = getHue(faceColor);
 				if (hue == YELLOW)
 				{
-					return hsbTors2(PURPLE, 2, 10);
+					return hsbTors2(PURPLE, 1, 30);
 				}
 				if (hue == ORANGE)
 				{
-					if (getBrightness(faceColor) > 36)
+					if (getBrightness(faceColor) > 25)
 					{
-						return hsbTors2(DARK_PURPLE, 2, 5);
+						return hsbTors2(DARK_PURPLE, 1, 20);
 					}
 					else
 					{
@@ -250,17 +245,9 @@ public class ModelRecolorer
 					return hsbTors2(GREEN - 1, getSaturation(faceColor), getBrightness(faceColor) / 3);
 				}
 				return faceColor;
-
-			case Runite:
-				//TBD 21662
-				return faceColor;
-
-			case Adamantite:
-				//TBD
-				return faceColor;
-
+			}
 			default:
-				return -1; //how
+				return faceColor;
 		}
 	}
 
@@ -269,15 +256,7 @@ public class ModelRecolorer
 		return (h << 10) + (s << 7) + b;
 	}
 
-	private int brighten(int faceColor, int amt)
-	{
-		int faceHue = getHue(faceColor);
-		int faceSat = getSaturation(faceColor);
-		int faceBri = getBrightness(faceColor);
-		return hsbTors2(faceHue, faceSat, faceBri + amt);
-	}
-
-	public int newLavaColorHsb(int faceColor, Color newColor, int id)
+	public int newLavaColorHsb(int faceColor, int id)
 	{
 		if (faceColor == 2)
 		{
@@ -304,15 +283,6 @@ public class ModelRecolorer
 			case HueShift:
 			{
 				return lavaHueShift(faceColor, config.lavaColor(), faceColor, 1);
-			}
-
-			case CustomFullCustom:
-			{
-				if (id == 31039)
-				{
-					return lavaHueShift(faceColor, newColor, faceColor, 1);
-				}
-				return -1;
 			}
 
 			case Hidden:
@@ -366,11 +336,6 @@ public class ModelRecolorer
 			{
 				return hueShift(faceColor, newColor);
 			}
-			case CustomFullCustom:
-			{
-				// Implement logic for shifting saturation and brightness along with hue to more closely match the desired color
-				return -1;
-			}
 
 			case MatchLava:
 			{
@@ -378,7 +343,7 @@ public class ModelRecolorer
 				{
 					return faceColor;
 				}
-				return newLavaColorHsb(faceColor, newColor, id);
+				return newLavaColorHsb(faceColor, id);
 			}
 			default:
 				return -1; //how
@@ -393,10 +358,9 @@ public class ModelRecolorer
 		}
 		// Ignore lava beast projectiles, don't make anything on lava beasts invisible, and don't hide gas hole animations
 		if ((faceColor > 9000 || isWhite(faceColor))
-			&& !(id == 1403 || ((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST) || LOWER_LEVEL_INTERACTABLES.contains(id) || id == 1407)
-		)
+			&& !(id == 1403 || ((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST) || LOWER_LEVEL_INTERACTABLES.contains(id) || id == 1407))
 		{
-			return newLavaColorHsb(faceColor, newColor, id);
+			return newLavaColorHsb(faceColor, id);
 		}
 		switch (globalColor)
 		{
@@ -419,32 +383,6 @@ public class ModelRecolorer
 			case HueShift:
 			{
 				return hueShift(faceColor, newColor);
-			}
-			case CustomFullCustom:
-			{
-				int newColorHsb = colorToRs2hsb(newColor);
-
-				// values of the facecolor
-				int hueFace = extractHsbValues(faceColor, 6, 11);
-				int saturationFace = extractHsbValues(faceColor, 3, 8);
-				int brightnessFace = extractHsbValues(faceColor, 7, 1);
-				// value of the new reference color
-				int hueRef = extractHsbValues(newColorHsb, 6, 11);
-				int saturationRef = getSaturation(newColorHsb);
-				int brightnessRef = getBrightness(newColorHsb);
-				// Need to do math to skew saturation
-				// Brightness is probably much easier to work with
-				// value for the current reference color
-
-				//int referenceHue = extractHsbValues(referenceColor, 6, 11);
-
-				//int hueDiff = referenceHue - hueFace;
-
-				//int newHue = hueRef - hueDiff;
-
-				// newHue = (newHue % 64 + 64) % 64;
-
-				return (hueRef << 10) + (saturationFace << 7) + brightnessRef;
 			}
 
 			default:

@@ -14,19 +14,15 @@ public interface VMRecolorConfig extends Config
 	{
 		Default,
 		Brightness,
-		CustomHueShift,
-		CustomFullCustom,
-		Star,
-		Runite,
-		Adamantite
+		HueShift,
+		Star
 	}
 
 	enum GlobalColor
 	{
 		Default,
 		Brightness,
-		HueShift,
-		CustomFullCustom
+		HueShift
 	}
 
 	enum LavaOptions
@@ -34,7 +30,6 @@ public interface VMRecolorConfig extends Config
 		Default,
 		Brightness,
 		HueShift,
-		CustomFullCustom,
 		Hidden
 	}
 
@@ -43,7 +38,6 @@ public interface VMRecolorConfig extends Config
 		Default,
 		Brightness,
 		HueShift,
-		CustomFullCustom,
 		MatchLava
 	}
 

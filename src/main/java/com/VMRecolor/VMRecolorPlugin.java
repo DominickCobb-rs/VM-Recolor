@@ -61,7 +61,6 @@ import net.runelite.api.Tile;
 import net.runelite.api.TileObject;
 import net.runelite.api.WallObject;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.CommandExecuted;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GraphicsObjectCreated;
 import net.runelite.api.events.GroundObjectSpawned;
@@ -105,9 +104,7 @@ public class VMRecolorPlugin extends Plugin
 
 	private final ArrayList<GameObject> recordedGameObjects = new ArrayList<>();
 	private final ArrayList<GroundObject> recordedGroundObjects = new ArrayList<>();
-	private final ArrayList<WallObject> recordedWallObjects = new ArrayList<>();
 	private final ArrayList<Model> recordedModels = new ArrayList<>();
-	private final ArrayList<Model> wallModels = new ArrayList<>(); // Need this to prevent having to force reload every time wall color is changed
 	private final ArrayList<NPC> recordedNpcs = new ArrayList<>();
 	private final ArrayList<Projectile> recordedProjectiles = new ArrayList<>();
 	private final ArrayList<GraphicsObject> recordedGraphicsObjects = new ArrayList<>();
@@ -120,9 +117,7 @@ public class VMRecolorPlugin extends Plugin
 	public static final Set<Integer> THE_BOULDER = ImmutableSet.of(31034, 31035, 31036, 31037, 31038);
 	public static final Set<Integer> THE_BOULDER_NPCS = ImmutableSet.of(7807, 7808, 7809, 7810, 7811, 7812, 7813, 7814, 7815, 7816);
 
-	// All game objects with visible yellow lava
-	// There is some overlap in certain places due to how Jagex chose to decorate the volcano
-	public static final Set<Integer> LAVA = ImmutableSet.of(31001, 31002, 31039); // This is a ground object, not a game object
+	public static final Set<Integer> LAVA = ImmutableSet.of(31001, 31002, 31039);
 	private static final Set<Integer> GAME_OBJECTS = ImmutableSet.of(30998, 30999, 31000, 31002, 31003, 31004, 31005, 31006, 31007, 31008, 31009, 31010, 31011, 31012, 31013, 30996, 30995, 30994, 30993, 30992, 30991, 30990, 31039, 31014, 31015, 31016, 31017, 31018, 31019, 31020, 31021, 31022, 31023, 31024, 31025, 31026, 31027, 31028, 31029, 31030, 31042, 31043, 31044, 31045, 31046, 31047, 31048, 31049, 31050, 31051, 31052);
 	public static final Set<Integer> LOWER_LEVEL_FLOOR = ImmutableSet.of(31003, 31004, 31005, 31006, 31007, 31008, 31009, 31010, 31011, 31012, 31013, 31026, 31028, 31030, 31033, 31042, 31043, 31044, 31045, 31046, 31047, 31048, 31049, 31050, 31051, 31052);
 	public static final Set<Integer> LOWER_LEVEL_INTERACTABLES = ImmutableSet.of(31042, 31043, 31044, 31045, 31046, 31047, 31048, 31049, 31050, 31051, 31052);
@@ -160,7 +155,6 @@ public class VMRecolorPlugin extends Plugin
 			recordedGameObjects.clear();
 			recordedGroundObjects.clear();
 			recordedNpcs.clear();
-			recordedWallObjects.clear();
 			recordedProjectiles.clear();
 			recordedGraphicsObjects.clear();
 			synchronized (modelRecolorer)
@@ -174,12 +168,6 @@ public class VMRecolorPlugin extends Plugin
 				client.setGameState(GameState.LOADING);
 			});
 		}
-	}
-
-	@Subscribe
-	public void onCommandExecuted(CommandExecuted command)
-	{
-
 	}
 
 	@Subscribe
@@ -447,7 +435,6 @@ public class VMRecolorPlugin extends Plugin
 		}
 		if (WALL_OBJECTS.contains(event.getWallObject().getId()))
 		{
-			recordedWallObjects.add(event.getWallObject());
 			recolorWallObject(event.getWallObject());
 		}
 	}
