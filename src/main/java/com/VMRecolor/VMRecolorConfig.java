@@ -72,6 +72,17 @@ public interface VMRecolorConfig extends Config
 	String color = "color";
 
 	@ConfigItem(
+		keyName = "syncColors",
+		name = "Sync colors",
+		description = "Sync custom colors when changing -- takes effect on your next color change. Reopen settings to see synced colors.",
+		section = globalOpt
+	)
+	default boolean syncColors()
+	{
+		return true;
+	}
+
+	@ConfigItem(
 		keyName = "Boulder",
 		name = "Boulder",
 		description = "Recolor the boulder",
@@ -85,7 +96,7 @@ public interface VMRecolorConfig extends Config
 	@ConfigItem(
 		keyName = "lavaBeast",
 		name = "Lava Beast",
-		description = "Recolor VM",
+		description = "Recolor lava beast",
 		section = options
 	)
 	default GlobalColor lavaBeast()
@@ -139,7 +150,7 @@ public interface VMRecolorConfig extends Config
 	@ConfigItem(
 		keyName = "wall",
 		name = "Walls",
-		description = "Wall option",
+		description = "Wall colors",
 		section = options
 	)
 	default GlobalColor wall()
@@ -183,7 +194,7 @@ public interface VMRecolorConfig extends Config
 	@ConfigItem(
 		keyName = "wallCustomColor",
 		name = "Walls",
-		description = "Wall color",
+		description = "Walls color",
 		section = color
 	)
 	default Color wallColor()

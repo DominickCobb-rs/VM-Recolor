@@ -1,8 +1,40 @@
+/*
+	BSD 2-Clause License
+
+	Copyright (c) 2024, denaelc
+
+	Redistribution and use in source and binary forms, with or without
+	modification, are permitted provided that the following conditions are met:
+
+	1. Redistributions of source code must retain the above copyright notice, this
+	   list of conditions and the following disclaimer.
+
+	2. Redistributions in binary form must reproduce the above copyright notice,
+	   this list of conditions and the following disclaimer in the documentation
+	   and/or other materials provided with the distribution.
+
+	THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS"
+	AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
+	IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+	DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE
+	FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+	DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+	SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+	CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,
+	OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+	OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ */
+// A lot of code used from the gauntlet recolor plugin.
+// This is an adaptation(abomination) of the previously created modelprocessor.
+// The name was changed specifically because the it was easier for me to keep track of things as I went along.
+
 package com.VMRecolor;
 
+import static com.VMRecolor.VMRecolorPlugin.GRAPHICS_OBJECTS;
 import static com.VMRecolor.VMRecolorPlugin.LAVA;
 import static com.VMRecolor.VMRecolorPlugin.LAVA_BEAST;
 import static com.VMRecolor.VMRecolorPlugin.LOWER_LEVEL_FLOOR;
+import static com.VMRecolor.VMRecolorPlugin.LOWER_LEVEL_INTERACTABLES;
 import static com.VMRecolor.VMRecolorPlugin.PLATFORMS;
 import static com.VMRecolor.VMRecolorPlugin.UPPER_LEVEL_FLOOR;
 import static com.VMRecolor.VMRecolorPlugin.WALL_OBJECTS;
@@ -16,7 +48,6 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Set;
 import javax.inject.Inject;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Model;
@@ -96,59 +127,12 @@ public class ModelRecolorer
 				int[][] recoloredColors = new int[colors.length][];
 				for (int i = 0; i < colors.length; i++)
 				{
-					recoloredColors[i] = recolor(colors[i], id, VMRecolorPlugin.WALL_OBJECTS.contains(id));
+					recoloredColors[i] = recolor(colors[i], id);
 				}
 				recoloredMap.put(id, recoloredColors);
 			});
 			recoloredColorData.put(type, recoloredMap);
 		});
-	}
-
-	private int[][] getOriginalColorDataForTypeAndId(String type, int id)
-	{
-		if (originalColorData.containsKey(type))
-		{
-			Map<Integer, int[][]> models = originalColorData.get(type);
-			if (models.containsKey(id))
-			{
-				return models.get(id);
-			}
-		}
-		log.info("ORIGINAL COLOR DATA DIDN'T CONTAIN: {}", type);
-		return null;
-	}
-
-	private int[][] recolorEntry(int id, int[][] colors, boolean isWall)
-	{
-		int[][] recoloredColors = new int[colors.length][];
-		for (int[] color : colors)
-		{
-			recolor(color, id, isWall);
-		}
-		return recoloredColors;
-	}
-
-	public void updateRecolorData(String type, int id, boolean isWall)
-	{
-		int[][] originalColors = getOriginalColorDataForTypeAndId(type, id);
-		if (originalColors != null)
-		{
-			int[][] recoloredColors = recolorEntry(id, originalColors, isWall);
-			recoloredColorData.computeIfAbsent(type, k -> new HashMap<>()).put(id, recoloredColors);
-		}
-	}
-
-	public void updateRecolorData(String type, Set<Integer> ids, boolean isWall)
-	{
-		for (int id : ids)
-		{
-			int[][] originalColors = getOriginalColorDataForTypeAndId(type, id);
-			if (originalColors != null)
-			{
-				int[][] recoloredColors = recolorEntry(id, originalColors, isWall);
-				recoloredColorData.computeIfAbsent(type, k -> new HashMap<>()).put(id, recoloredColors);
-			}
-		}
 	}
 
 	private boolean isBoulder(int id)
@@ -157,12 +141,12 @@ public class ModelRecolorer
 	}
 
 	// recolors a single array of colors (e.g. facecolors1 of a single model)
-	private int[] recolor(int[] originalColors, int id, boolean isWall)
+	private int[] recolor(int[] originalColors, int id)
 	{
 		int[] newColors = new int[originalColors.length];
 		for (int i = 0; i < originalColors.length; i++)
 		{
-			if (isWall || WALL_OBJECTS.contains(id))
+			if (id == 0 || WALL_OBJECTS.contains(id))
 			{
 				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.wallColor(), id, config.wall());
 			}
@@ -170,7 +154,7 @@ public class ModelRecolorer
 			{
 				newColors[i] = newBoulderColorHsb(originalColors[i], config.boulderColor(), id, config.boulder());
 			}
-			else if (LOWER_LEVEL_FLOOR.contains(id))
+			else if (LOWER_LEVEL_FLOOR.contains(id) || GRAPHICS_OBJECTS.contains(id))
 			{
 				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lowerLevelFloorColor(), id, config.lowerLevelFloor());
 			}
@@ -182,7 +166,7 @@ public class ModelRecolorer
 			{
 				newColors[i] = newColorPlatformHandler(originalColors[i], config.platformColor(), id, config.platform());
 			}
-			else if (id == LAVA_BEAST)
+			else if (id == LAVA_BEAST || id == 1403)
 			{
 				newColors[i] = newColorHsbEnumHandler(originalColors[i], config.lavaBeastColor(), id, config.lavaBeast());
 			}
@@ -230,10 +214,6 @@ public class ModelRecolorer
 
 			case CustomFullCustom:
 			{
-				if (id == 31039)
-				{
-					return lavaHueShift(faceColor, newColor, faceColor, 1);
-				}
 				return -1;
 			}
 			// Can directly apply RS color IDs with these, yeah?
@@ -253,21 +233,21 @@ public class ModelRecolorer
 					}
 					else
 					{
-						return hsbTors2(GREEN, getSaturation(faceColor), getBrightness(faceColor)/3);
+						return hsbTors2(GREEN, getSaturation(faceColor), getBrightness(faceColor) / 3);
 					}
 				}
 				// Reds
 				if (hue == 1)
 				{
-					return hsbTors2(GREEN+1, getSaturation(faceColor), getBrightness(faceColor)/3);
+					return hsbTors2(GREEN + 1, getSaturation(faceColor), getBrightness(faceColor) / 3);
 				}
 				if (hue == 2)
 				{
-					return hsbTors2(GREEN, getSaturation(faceColor), getBrightness(faceColor)/3);
+					return hsbTors2(GREEN, getSaturation(faceColor), getBrightness(faceColor) / 3);
 				}
 				if (hue == 3)
 				{
-					return hsbTors2(GREEN-1, getSaturation(faceColor), getBrightness(faceColor)/3);
+					return hsbTors2(GREEN - 1, getSaturation(faceColor), getBrightness(faceColor) / 3);
 				}
 				return faceColor;
 
@@ -411,7 +391,10 @@ public class ModelRecolorer
 		{
 			return faceColor;
 		}
-		if ((faceColor > 9000 || isWhite(faceColor)) && !((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST))
+		// Ignore lava beast projectiles, don't make anything on lava beasts invisible, and don't hide gas hole animations
+		if ((faceColor > 9000 || isWhite(faceColor))
+			&& !(id == 1403 || ((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST) || LOWER_LEVEL_INTERACTABLES.contains(id) || id == 1407)
+		)
 		{
 			return newLavaColorHsb(faceColor, newColor, id);
 		}
@@ -439,8 +422,29 @@ public class ModelRecolorer
 			}
 			case CustomFullCustom:
 			{
-				// Implement logic for shifting saturation and brightness along with hue to more closely match the desired color
-				return -1;
+				int newColorHsb = colorToRs2hsb(newColor);
+
+				// values of the facecolor
+				int hueFace = extractHsbValues(faceColor, 6, 11);
+				int saturationFace = extractHsbValues(faceColor, 3, 8);
+				int brightnessFace = extractHsbValues(faceColor, 7, 1);
+				// value of the new reference color
+				int hueRef = extractHsbValues(newColorHsb, 6, 11);
+				int saturationRef = getSaturation(newColorHsb);
+				int brightnessRef = getBrightness(newColorHsb);
+				// Need to do math to skew saturation
+				// Brightness is probably much easier to work with
+				// value for the current reference color
+
+				//int referenceHue = extractHsbValues(referenceColor, 6, 11);
+
+				//int hueDiff = referenceHue - hueFace;
+
+				//int newHue = hueRef - hueDiff;
+
+				// newHue = (newHue % 64 + 64) % 64;
+
+				return (hueRef << 10) + (saturationFace << 7) + brightnessRef;
 			}
 
 			default:
@@ -452,7 +456,6 @@ public class ModelRecolorer
 	{
 		int faceHue = extractHsbValues(faceColor, 6, 11);
 		int faceSat = extractHsbValues(faceColor, 3, 8);
-		int faceBri = extractHsbValues(faceColor, 7, 1);
 		return faceHue == 0 && faceSat == 0;
 	}
 
@@ -461,17 +464,12 @@ public class ModelRecolorer
 		int newColorHsb = colorToRs2hsb(newColor);
 
 		// values of the facecolor
-		int hueFace = extractHsbValues(faceColor, 6, 11);
 		int saturationFace = extractHsbValues(faceColor, 3, 8);
 		int brightnessFace = extractHsbValues(faceColor, 7, 1);
 		// value of the new reference color
 		int hueRef = extractHsbValues(newColorHsb, 6, 11);
-		// value for the current reference color
-		int referenceHue = extractHsbValues(referenceColor, 6, 11);
 
-		int hueDiff = referenceHue - hueFace;
-		int newHue = hueRef - hueDiff;
-		// Pure white colors are behaving oddly
+		// This is a WIP
 		int newBrightness;
 
 		newBrightness = (int) (brightnessFace * ((config.brightness() / 100.0) / aggression));
@@ -492,7 +490,6 @@ public class ModelRecolorer
 	// applies the colors to a model
 	public void applyColor(Model model, int[] f1, int[] f2, int[] f3)
 	{
-		// The boulder models for some reason null :)
 		int[] faceColors, faceColors2, faceColors3;
 		try
 		{
@@ -513,18 +510,8 @@ public class ModelRecolorer
 		}
 		else
 		{
-			log.debug("FaceColor has the wrong length.");
+			log.info("FaceColor has the wrong length.");
 		}
-	}
-
-	// returns the new color in the rs2hsb format
-	public int newColorHsb(int faceColor, Color newColor, int id)
-	{
-		if (faceColor > 9000 || isWhite(faceColor) && !((config.lava() == VMRecolorConfig.LavaOptions.Hidden) && id == LAVA_BEAST))
-		{
-			return newLavaColorHsb(faceColor, newColor, id);
-		}
-		return hueShift(faceColor, newColor);
 	}
 
 	// same concept as brightColors, but only shifts Hue
@@ -597,7 +584,10 @@ public class ModelRecolorer
 		}
 	}
 
-	public void applyWallColors(Model model, Color newColor, boolean lavaWall)
+	// Calls to this method are so computationally heavy they result in significant client hitching
+	// this is alleviated by not calling them synchronously (should only be a problem if a user changes config
+	// when rendering?) This is noteable when crossing any loading line (if called synchronously).
+	public void applyColorsDirectly(Model model, int id)
 	{
 		int[] f1 = model.getFaceColors1();
 		int[] f2 = model.getFaceColors2();
@@ -605,15 +595,7 @@ public class ModelRecolorer
 
 		if (f1 != null && f2 != null && f3 != null)
 		{
-			//recolorWall();
-			if (lavaWall)
-			{
-				applyColor(model, recolor(f1, 0, true), recolor(f2, 0, true), recolor(f3, 0, true));
-			}
-			else
-			{
-				applyColor(model, recolor(f1, 0, true), recolor(f2, 0, true), recolor(f3, 0, true));
-			}
+			applyColor(model, recolor(f1, id), recolor(f2, id), recolor(f3, id));
 		}
 	}
 
