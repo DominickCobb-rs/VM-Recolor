@@ -1,4 +1,4 @@
-rootProject.name = 'example'
+rootProject.name = 'VMRecolor'
 include 'src:main:resource'
 findProject(':src:main:resource')?.name = 'resource'
 

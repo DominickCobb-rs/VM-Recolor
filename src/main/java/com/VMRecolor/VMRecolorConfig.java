@@ -1,5 +1,6 @@
 package com.VMRecolor;
 
+import static com.VMRecolor.VMRecolorPlugin.CONFIG_GROUP;
 import java.awt.Color;
 import net.runelite.client.config.Config;
 import net.runelite.client.config.ConfigGroup;
@@ -7,7 +8,7 @@ import net.runelite.client.config.ConfigItem;
 import net.runelite.client.config.ConfigSection;
 import net.runelite.client.config.Range;
 
-@ConfigGroup("VMRecolor")
+@ConfigGroup(CONFIG_GROUP)
 public interface VMRecolorConfig extends Config
 {
 	enum BoulderTypes
@@ -74,6 +75,17 @@ public interface VMRecolorConfig extends Config
 	default boolean syncColors()
 	{
 		return true;
+	}
+
+	@ConfigItem(
+		keyName = "ignoreThis",
+		name = "HD ground textures",
+		description = "",
+		section = globalOpt
+	)
+	default String ignore()
+	{
+		return "117 HD ground textures do not blend with the models in VM currently. \nIf you toggle Ground Textures setting off in that plugin it should alleviate the harsh edges.";
 	}
 
 	@ConfigItem(
