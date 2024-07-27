@@ -112,8 +112,6 @@ public class VMRecolorPlugin extends Plugin
 	private final ArrayList<Integer> sceneIDs = new ArrayList<>();
 	private final Set<Integer> VMRegionIDs = ImmutableSet.of(15263, 15262, 15519, 15518, 15775, 15774);
 
-	int regionId;
-
 	private static final Set<String> COLOR_CONFIG_KEYS = ImmutableSet.of("BoulderCustomColor", "wallCustomColor", "lavaBeastCustomColor", "upperLevelFloorCustomColor", "lowerLevelFloorCustomColor", "platformCustomColor", "lavaColor");
 	public static final Set<Integer> THE_BOULDER = ImmutableSet.of(31034, 31035, 31036, 31037, 31038);
 	public static final Set<Integer> THE_BOULDER_NPCS = ImmutableSet.of(7807, 7808, 7809, 7810, 7811, 7812, 7813, 7814, 7815, 7816);
@@ -129,6 +127,10 @@ public class VMRecolorPlugin extends Plugin
 
 	public static final int LAVA_BEAST = 7817;
 	private boolean syncingColors = false;
+
+	private int regionId;
+	private boolean counting;
+	private int ticksSinceInVM;
 
 	@Override
 	protected void startUp() throws Exception
@@ -150,14 +152,7 @@ public class VMRecolorPlugin extends Plugin
 	{
 		clientThread.invokeLater(() -> {
 			clearAll();
-			resetSceneIDs();
 
-			//freeing the stored data.
-			recordedGameObjects.clear();
-			recordedGroundObjects.clear();
-			recordedNpcs.clear();
-			recordedProjectiles.clear();
-			recordedGraphicsObjects.clear();
 			synchronized (modelRecolorer)
 			{
 				modelRecolorer.cleanUp();
@@ -204,15 +199,6 @@ public class VMRecolorPlugin extends Plugin
 			idx = createColorMenu(idx, event.getTarget(), npc.getId());
 		}
 
-	}
-
-	@Subscribe
-	public void onVarbitChanged(VarbitChanged event)
-	{
-		if (event.getVarbitId() == 5937 && event.getValue() == 0) // Looks like this is the varb for when someone is in VM?
-		{
-			clearAll();
-		}
 	}
 
 	@Subscribe
@@ -351,6 +337,14 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event)
 	{
+		// Running clearAll on varbit changed is tricky because it
+		// crashes the client without waiting a tick after.
+		// The vm varbit changes before the player loads the environment outside VM
+		if(event.getNpc().getId()==7776 && recordedGameObjects.size()>0)
+		{
+			clientThread.invokeLater(this::clearAll);
+			return;
+		}
 		if (!inVMRegion())
 		{
 			return;
@@ -698,6 +692,15 @@ public class VMRecolorPlugin extends Plugin
 
 			modelRecolorer.applyColors(g.getId(), "GraphicsObject", g.getModel(), false);
 		}
+
+		resetSceneIDs();
+
+		//freeing the stored data.
+		recordedGameObjects.clear();
+		recordedGroundObjects.clear();
+		recordedNpcs.clear();
+		recordedProjectiles.clear();
+		recordedGraphicsObjects.clear();
 	}
 
 	// recolors all GameObjects, GroundObjects, NPCs (including Hunllef) and Projectiles to their desired colors, if they are stored in the corresponding list.

@@ -187,13 +187,9 @@ public class ModelRecolorer
 
 	public int newBoulderColorHsb(int faceColor, Color newColor, int id, VMRecolorConfig.BoulderTypes boulderType)
 	{
-		if (faceColor == 0)
+		if (faceColor <= 0)
 		{
-			return faceColor;
-		}
-		if (faceColor == -1)
-		{
-			return -2;
+			return faceColor; // Returning -2 for -1 faces removes a large portion of the boulder
 		}
 
 		switch (boulderType)
@@ -221,6 +217,8 @@ public class ModelRecolorer
 				// If there's a way to edit rsmodels with their natural hsbs I would love to do this and just export as needed, but currently is not viable.
 				// When it breaks, it reveals the model of the next boulder but without the
 				// custom colors applied
+				// Would have to subscribe to animation changed event or something similar to that to
+				// recolor the animation appropriately. Very annoying
 			{
 				int hue = getHue(faceColor);
 				if (hue == YELLOW)
@@ -537,7 +535,6 @@ public class ModelRecolorer
 		int[] f1 = model.getFaceColors1();
 		int[] f2 = model.getFaceColors2();
 		int[] f3 = model.getFaceColors3();
-
 		if (f1 != null && f2 != null && f3 != null)
 		{
 			applyColor(model, recolor(f1, id), recolor(f2, id), recolor(f3, id));
