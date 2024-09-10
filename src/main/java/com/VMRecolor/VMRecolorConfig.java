@@ -74,7 +74,7 @@ public interface VMRecolorConfig extends Config
 	)
 	default boolean syncColors()
 	{
-		return true;
+		return false;
 	}
 
 	@ConfigItem(
