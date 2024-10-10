@@ -66,9 +66,11 @@ import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.util.ColorUtil;
 
 @Slf4j
-@PluginDescriptor(name = "VM Recolor",
+@PluginDescriptor(
+		name = "VM Recolor",
 		description="Make Volcanic Mine not look like cheese",
-		tags= {"volcanic","mine","ultimate","vm","color","vent","recolor","boulder"})
+		tags= {"volcanic","mine","ultimate","vm","color","vent","recolor","boulder"}
+)
 public class VMRecolorPlugin extends Plugin
 {
 	public static final String CONFIG_GROUP = "VMRecolor";
