@@ -44,22 +44,7 @@ import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.GameObject;
-import net.runelite.api.GameState;
-import net.runelite.api.GraphicsObject;
-import net.runelite.api.GroundObject;
-import net.runelite.api.KeyCode;
-import net.runelite.api.MenuAction;
-import net.runelite.api.MenuEntry;
-import net.runelite.api.Model;
-import net.runelite.api.NPC;
-import net.runelite.api.Projectile;
-import net.runelite.api.Renderable;
-import net.runelite.api.Scene;
-import net.runelite.api.Tile;
-import net.runelite.api.TileObject;
-import net.runelite.api.WallObject;
+import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.GameObjectSpawned;
 import net.runelite.api.events.GraphicsObjectCreated;
@@ -204,14 +189,14 @@ public class VMRecolorPlugin extends Plugin
 	@Subscribe
 	public void onConfigChanged(ConfigChanged event)
 	{
-		if (!event.getGroup().equals("VMRecolor") || syncingColors) // Can create loop of death if changing colors without this
+		if (!event.getGroup().equals(CONFIG_GROUP) || syncingColors) // Can create loop of death if changing colors without this
 		{
 			return;
 		}
 		if (config.syncColors() && COLOR_CONFIG_KEYS.contains(event.getKey()))
 		{
 			syncingColors = true;
-			log.info("Attmepting to sync color change: {}", event.getKey());
+			log.debug("Attmepting to sync color change: {}", event.getKey());
 			Color newColor = Color.WHITE;
 			switch (event.getKey())
 			{
@@ -254,8 +239,8 @@ public class VMRecolorPlugin extends Plugin
 			}
 			for (String key : COLOR_CONFIG_KEYS)
 			{
-				log.info("Syncing color change: {}", key);
-				configManager.setConfiguration("VMRecolor", key, newColor);
+				log.debug("Syncing color change: {}", key);
+				configManager.setConfiguration(CONFIG_GROUP, key, newColor);
 			}
 			syncingColors = false;
 
@@ -340,7 +325,7 @@ public class VMRecolorPlugin extends Plugin
 		// Running clearAll on varbit changed is tricky because it
 		// crashes the client without waiting a tick after.
 		// The vm varbit changes before the player loads the environment outside VM
-		if(event.getNpc().getId()==7776 && recordedGameObjects.size()>0)
+		if(event.getNpc().getId()==7776 && !recordedGameObjects.isEmpty())
 		{
 			clientThread.invokeLater(this::clearAll);
 			return;
@@ -624,7 +609,7 @@ public class VMRecolorPlugin extends Plugin
 				Model model = renderable.getModel();
 				if (model == null)
 				{
-					log.info("verifyModel returned null!");
+					log.debug("verifyModel returned null!");
 					return null;
 				}
 				return model;
@@ -663,7 +648,7 @@ public class VMRecolorPlugin extends Plugin
 			Model model = verifyModel(renderable);
 			if (model == null)
 			{
-				log.debug("clearAll returned null! - GameObject");
+				log.debug("clearAll returned null! - NPC");
 			}
 
 			modelRecolorer.applyColors(n.getId(), "NPC", model, false);
@@ -776,23 +761,22 @@ public class VMRecolorPlugin extends Plugin
 		}
 
 		MenuEntry parent = client.createMenuEntry(idx--)
-			.setOption("Recolor " + name)
+			.setOption("Recolor")
 			.setTarget(target)
-			.setType(MenuAction.RUNELITE_SUBMENU);
-
+			.setType(MenuAction.RUNELITE);
+		Menu submenu = parent.createSubMenu();
+		int yeet = 0;
 		for (final Color c : colors)
 		{
-			client.createMenuEntry(idx--)
-				.setOption(ColorUtil.prependColorTag("Set color", c))
-				.setType(MenuAction.RUNELITE)
-				.setParent(parent)
-				.onClick(e -> updateConfig(id, c));
+			submenu.createMenuEntry(yeet)
+					.setOption(ColorUtil.prependColorTag("Set color", c))
+					.setType(MenuAction.RUNELITE)
+					.onClick(e -> updateConfig(id, c));
+			yeet++;
 		}
-
-		client.createMenuEntry(idx--)
+		submenu.createMenuEntry(yeet)
 			.setOption("Pick color")
 			.setType(MenuAction.RUNELITE)
-			.setParent(parent)
 			.onClick(e -> SwingUtilities.invokeLater(() ->
 			{
 				RuneliteColorPicker colorPicker = colorPickerManager.create(SwingUtilities.windowForComponent((Applet) client),
@@ -830,15 +814,15 @@ public class VMRecolorPlugin extends Plugin
 	{
 		if (WALL_OBJECTS.contains(id))
 		{
-			configManager.setConfiguration("VMRecolor", "wallCustomColor", c);
+			configManager.setConfiguration(CONFIG_GROUP, "wallCustomColor", c);
 		}
 		else if (THE_BOULDER.contains(id) || THE_BOULDER_NPCS.contains(id))
 		{
-			configManager.setConfiguration("VMRecolor", "BoulderCustomColor", c);
+			configManager.setConfiguration(CONFIG_GROUP, "BoulderCustomColor", c);
 		}
 		else if (id == LAVA_BEAST)
 		{
-			configManager.setConfiguration("VMRecolor", "lavaBeastCustomColor", c);
+			configManager.setConfiguration(CONFIG_GROUP, "lavaBeastCustomColor", c);
 		}
 	}
 
