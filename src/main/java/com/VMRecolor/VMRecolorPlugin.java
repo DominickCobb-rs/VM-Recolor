@@ -81,7 +81,7 @@ import net.runelite.client.ui.components.colorpicker.RuneliteColorPicker;
 import net.runelite.client.util.ColorUtil;
 
 @Slf4j
-@PluginDescriptor(name = "VMRecolor", enabledByDefault = true)
+@PluginDescriptor(name = "VM-Recolor", enabledByDefault = true)
 public class VMRecolorPlugin extends Plugin
 {
 	public static final String CONFIG_GROUP = "VMRecolor";
