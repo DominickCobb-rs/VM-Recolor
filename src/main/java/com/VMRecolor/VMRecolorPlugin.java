@@ -41,20 +41,13 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.ScheduledExecutorService;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.*;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.GameObjectSpawned;
-import net.runelite.api.events.GraphicsObjectCreated;
-import net.runelite.api.events.GroundObjectSpawned;
-import net.runelite.api.events.MenuEntryAdded;
-import net.runelite.api.events.NpcChanged;
-import net.runelite.api.events.NpcSpawned;
-import net.runelite.api.events.ProjectileMoved;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.events.WallObjectSpawned;
+import net.runelite.api.events.*;
 import net.runelite.client.callback.ClientThread;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.Subscribe;
@@ -91,6 +84,9 @@ public class VMRecolorPlugin extends Plugin
 
 	@Inject
 	private ConfigManager configManager;
+
+	@Inject
+	private ScheduledExecutorService executor;
 
 	private final ArrayList<GameObject> recordedGameObjects = new ArrayList<>();
 	private final ArrayList<GroundObject> recordedGroundObjects = new ArrayList<>();
@@ -154,6 +150,58 @@ public class VMRecolorPlugin extends Plugin
 			});
 		}
 	}
+
+	@Subscribe
+	public void onPreMapLoad(PreMapLoad event)
+	{
+		/*if (!inVMRegion())
+		{
+			log.debug("We're not in the VM Region!");
+			return;
+		}*/
+		Scene scene = event.getScene();
+		Tile[][][] sceneTiles = scene.getTiles();
+		for (Tile[][] tiles : sceneTiles)
+		{
+			for (Tile[] tiles1 : tiles)
+			{
+				for (Tile tile : tiles1)
+				{
+					if (tile == null)
+						continue;
+					GameObject[] gameObjects = tile.getGameObjects();
+					GroundObject groundObject = tile.getGroundObject();
+					WallObject wallObject = tile.getWallObject();
+                    for (GameObject object : gameObjects) {
+                        if(object == null)
+						{
+							continue;
+						}
+						int ID = object.getId();
+                        if (GAME_OBJECTS.contains(ID) || THE_BOULDER.contains(ID) || WALL_OBJECTS.contains(ID) || LAVA.contains(ID)) {
+                            recolorGameObject(object, true);
+                        }
+                    }
+                    if (groundObject != null)
+					{
+							int ID = groundObject.getId();
+							if (ID == 659 || GRAPHICS_OBJECTS.contains(ID))
+							{
+								recolorGroundObject(groundObject, true);
+							}
+					}
+					if (wallObject != null)
+					{
+						if (WALL_OBJECTS.contains(wallObject.getId()))
+						{
+							executor.execute(()->recolorWallObject(wallObject, true));
+						}
+					}
+				}
+			}
+		}
+	}
+
 
 	@Subscribe
 	public void onMenuEntryAdded(MenuEntryAdded event)
@@ -307,7 +355,10 @@ public class VMRecolorPlugin extends Plugin
 		}
 	}
 
-	@Subscribe
+	// TODO: Keep an array in PreMapLoad event that contains all the game objects, wall objects, graphics objects, etc. saying whether it was recolorable or not
+	// TODO: Use that array to check against the game object spawned in this event, skip if it's already been recolored, else add it to an array of recolored objects and recolor it as done previously
+
+	/*@Subscribe
 	public void onGameObjectSpawned(GameObjectSpawned event)
 	{
 		if (!inVMRegion())
@@ -321,7 +372,7 @@ public class VMRecolorPlugin extends Plugin
 			recordedGameObjects.add(event.getGameObject());
 			recolorGameObject(event.getGameObject());
 		}
-	}
+	}*/
 
 	@Subscribe
 	public void onNpcSpawned(NpcSpawned event)
@@ -375,7 +426,7 @@ public class VMRecolorPlugin extends Plugin
 		}
 	}
 
-	@Subscribe
+	/*@Subscribe
 	public void onGroundObjectSpawned(GroundObjectSpawned event)
 	{
 		if (!inVMRegion())
@@ -392,7 +443,7 @@ public class VMRecolorPlugin extends Plugin
 			recordedGroundObjects.add(event.getGroundObject());
 			recolorGroundObject(event.getGroundObject());
 		}
-	}
+	}*/
 
 	@Subscribe
 	public void onGraphicsObjectCreated(GraphicsObjectCreated event)
@@ -410,7 +461,7 @@ public class VMRecolorPlugin extends Plugin
 		}
 	}
 
-	@Subscribe
+	/*@Subscribe
 	void onWallObjectSpawned(WallObjectSpawned event)
 	{
 		if (!inVMRegion())
@@ -421,7 +472,7 @@ public class VMRecolorPlugin extends Plugin
 		{
 			recolorWallObject(event.getWallObject());
 		}
-	}
+	}*/
 
 	@Subscribe
 	public void onProjectileMoved(ProjectileMoved projectileMoved)
@@ -484,17 +535,22 @@ public class VMRecolorPlugin extends Plugin
 		}
 	}
 
-	public void recolorGameObject(GameObject gameObject)
+	public void recolorGameObject(GameObject gameObject, boolean preMapLoad)
 	{
 		Renderable renderable = gameObject.getRenderable();
-		Model model = verifyModel(renderable);
+		Model model;
+		if (preMapLoad)
+		 	model = verifyPreMapLoadModel(renderable);
+		else
+			model = verifyModel(renderable);
+
 		if (model == null)
 		{
 			log.debug("recolorGameObject returned null!");
 			return;
 		}
-		recordedModels.add(model);
-		sceneIDs.add(model.getSceneId());
+		//recordedModels.add(model);
+		//sceneIDs.add(model.getSceneId());
 		if (THE_BOULDER.contains(gameObject.getId()))
 		{
 			modelRecolorer.applyColors(gameObject.getId(), "GameObject", model, config.boulder() != BoulderTypes.Default);
@@ -517,14 +573,19 @@ public class VMRecolorPlugin extends Plugin
 			modelRecolorer.applyColors(gameObject.getId(), "GameObject", model, true);
 		}
 		recordedModels.add(model);
-		sceneIDs.add(model.getSceneId());
-		model.setSceneId(0);
+		//sceneIDs.add(model.getSceneId());
+		//model.setSceneId(0);
 	}
 
-	public void recolorGroundObject(GroundObject groundObject)
+	public void recolorGroundObject(GroundObject groundObject, boolean preMapLoad)
 	{
 		Renderable renderable = groundObject.getRenderable();
-		Model model = verifyModel(renderable);
+		Model model;
+		// if(preMapLoad)
+		//	model = verifyPreMapLoadModel(renderable);
+		// else
+			model = verifyModel(renderable);
+
 		if (model == null)
 		{
 			log.debug("recolorGroundObject returned null!");
@@ -533,21 +594,27 @@ public class VMRecolorPlugin extends Plugin
 
 		modelRecolorer.applyColors(groundObject.getId(), "GroundObject", model, true);
 		addToLists(model);
-		model.setSceneId(0);
-
+		//model.setSceneId(0);
 	}
 
-	public void recolorWallObject(WallObject wallObject)
+	public void recolorWallObject(WallObject wallObject, boolean preMapLoad)
 	{
 		Renderable renderable = wallObject.getRenderable1();
-		Model model = verifyModel(renderable);
+		Model model;
+		if (preMapLoad)
+			model = verifyPreMapLoadModel(renderable);
+		else
+			model = verifyModel(renderable);
 		Renderable renderable2 = null;
 		Model model2 = null;
 		// wallObjects can have 2 renderable models, not distinguishable and no good way to find them
 		try
 		{
 			renderable2 = wallObject.getRenderable2();
-			model2 = verifyModel(renderable2);
+			// if (preMapLoad)
+			//	model2 = verifyPreMapLoadModel(renderable2);
+			// else
+				model2 = verifyModel(renderable2);
 		}
 		catch (NullPointerException ignore)
 		{
@@ -557,8 +624,8 @@ public class VMRecolorPlugin extends Plugin
 
 			modelRecolorer.applyColorsDirectly(model2, 0);
 			recordedModels.add(model2);
-			sceneIDs.add(model2.getSceneId());
-			model2.setSceneId(0);
+			//sceneIDs.add(model2.getSceneId());
+			//model2.setSceneId(0);
 		}
 		if (model == null)
 		{
@@ -566,8 +633,8 @@ public class VMRecolorPlugin extends Plugin
 		}
 		modelRecolorer.applyColorsDirectly(model, 0);
 		recordedModels.add(model);
-		sceneIDs.add(model.getSceneId());
-		model.setSceneId(0);
+		//sceneIDs.add(model.getSceneId());
+		//model.setSceneId(0);
 	}
 
 	public void recolorNPC(NPC npc)
@@ -599,6 +666,15 @@ public class VMRecolorPlugin extends Plugin
 		recordedModels.clear();
 		sceneIDs.clear();
 	}
+
+	private Model verifyPreMapLoadModel(Renderable renderable)
+	{
+		if (renderable instanceof Model)
+		{
+			return (Model) renderable;
+		}
+        return null;
+    }
 
 	private Model verifyModel(Renderable renderable)
 	{
